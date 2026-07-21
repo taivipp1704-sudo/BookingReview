@@ -40,9 +40,15 @@ claritycam:
     expose-demo-code: ${OTP_EXPOSE_DEMO_CODE:false}
     expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
   identity-storage: ${IDENTITY_STORAGE:./private-data/identity}
+  identity-storage-provider: ${IDENTITY_STORAGE_PROVIDER:local}
   identity-encryption-key: ${IDENTITY_ENCRYPTION_KEY:dev-only-change-before-production}
   identity-retention-days: ${IDENTITY_RETENTION_DAYS:30}
   identity-cleanup-ms: ${IDENTITY_CLEANUP_MS:3600000}
+  r2:
+    endpoint: ${R2_ENDPOINT:}
+    bucket: ${R2_BUCKET:}
+    access-key-id: ${R2_ACCESS_KEY_ID:}
+    secret-access-key: ${R2_SECRET_ACCESS_KEY:}
 
 spring.servlet.multipart:
   max-file-size: 5MB

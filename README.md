@@ -44,6 +44,9 @@ Render tu repository nay, sau do khai bao cac bien bi mat trong dashboard:
 - `CLARITYCAM_ADMIN_PASSWORD`: mat khau admin manh.
 - `CLARITYCAM_ADMIN_EMAIL`: email dang nhap admin.
 - `IDENTITY_ENCRYPTION_KEY`: khoa bi mat dai, ngau nhien.
+- `IDENTITY_STORAGE_PROVIDER=r2`: luu anh CCCD ma hoa tren Cloudflare R2.
+- `R2_ENDPOINT`, `R2_BUCKET`: endpoint tai khoan va bucket R2 private.
+- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`: token R2 chi co quyen object read/write tren bucket.
 
 De tao admin dau tien ma khong nap du lieu demo, tam dat `BOOTSTRAP_ADMIN=true`
 cho lan deploy dau. Sau khi dang nhap thanh cong, doi bien nay ve `false`.

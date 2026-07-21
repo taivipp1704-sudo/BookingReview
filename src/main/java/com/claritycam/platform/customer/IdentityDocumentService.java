@@ -1,15 +1,13 @@
 package com.claritycam.platform.customer;
 
 import com.claritycam.platform.common.ApiException;
+import com.claritycam.platform.customer.storage.IdentityObjectStorage;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -33,20 +31,20 @@ public class IdentityDocumentService {
   private static final long MAX_PIXELS = 30_000_000L;
   private static final SecureRandom RANDOM = new SecureRandom();
 
-  private final Path root;
+  private final IdentityObjectStorage objectStorage;
   private final SecretKeySpec encryptionKey;
   private final IdentityUploadRepository uploads;
   private final int retentionDays;
 
   public IdentityDocumentService(
-      @Value("${claritycam.identity-storage:./private-data/identity}") String root,
       @Value("${claritycam.identity-encryption-key}") String encryptionSecret,
       @Value("${claritycam.identity-retention-days:30}") int retentionDays,
-      IdentityUploadRepository uploads) {
-    this.root = Path.of(root).toAbsolutePath().normalize();
+      IdentityUploadRepository uploads,
+      IdentityObjectStorage objectStorage) {
     this.encryptionKey = new SecretKeySpec(sha256(encryptionSecret), "AES");
     this.retentionDays = Math.max(1, retentionDays);
     this.uploads = uploads;
+    this.objectStorage = objectStorage;
   }
 
   @Transactional
@@ -56,14 +54,13 @@ public class IdentityDocumentService {
     String frontKey = UUID.randomUUID() + ".bin";
     String backKey = UUID.randomUUID() + ".bin";
     try {
-      Files.createDirectories(root);
       writeEncrypted(frontKey, normalizedFront);
       writeEncrypted(backKey, normalizedBack);
       LocalDateTime now = LocalDateTime.now();
       IdentityUpload upload = uploads.save(new IdentityUpload(UUID.randomUUID().toString(), fingerprint(ownerPhone),
           frontKey, backKey, now, now.plusMinutes(15)));
       return new UploadReceipt(upload.getId(), upload.getExpiresAt());
-    } catch (RuntimeException | IOException error) {
+    } catch (RuntimeException error) {
       deleteQuietly(frontKey);
       deleteQuietly(backKey);
       if (error instanceof ApiException apiException) throw apiException;
@@ -88,10 +85,8 @@ public class IdentityDocumentService {
     if (storageKey == null || !storageKey.matches("[0-9a-fA-F-]{36}\\.bin")) {
       throw ApiException.notFound("Không tìm thấy ảnh xác thực.");
     }
-    Path path = safePath(storageKey);
     try {
-      if (!Files.exists(path)) throw ApiException.notFound("Ảnh xác thực đã hết thời hạn lưu trữ.");
-      byte[] payload = Files.readAllBytes(path);
+      byte[] payload = objectStorage.get(storageKey);
       if (payload.length < 13) throw new IllegalStateException("Tệp xác thực không hợp lệ.");
       byte[] iv = java.util.Arrays.copyOfRange(payload, 0, 12);
       byte[] ciphertext = java.util.Arrays.copyOfRange(payload, 12, payload.length);
@@ -162,7 +157,7 @@ public class IdentityDocumentService {
     }
   }
 
-  private void writeEncrypted(String storageKey, byte[] plaintext) throws IOException {
+  private void writeEncrypted(String storageKey, byte[] plaintext) {
     try {
       byte[] iv = new byte[12];
       RANDOM.nextBytes(iv);
@@ -173,23 +168,15 @@ public class IdentityDocumentService {
       ByteArrayOutputStream payload = new ByteArrayOutputStream(iv.length + ciphertext.length);
       payload.write(iv);
       payload.write(ciphertext);
-      Files.write(safePath(storageKey), payload.toByteArray(), StandardOpenOption.CREATE_NEW);
-    } catch (IOException error) {
-      throw error;
+      objectStorage.put(storageKey, payload.toByteArray());
     } catch (Exception error) {
       throw new IllegalStateException("Không thể mã hóa ảnh xác thực.", error);
     }
   }
 
-  private Path safePath(String storageKey) {
-    Path resolved = root.resolve(storageKey).normalize();
-    if (!resolved.startsWith(root)) throw ApiException.badRequest("Tham chiếu tài liệu không hợp lệ.");
-    return resolved;
-  }
-
   private void deleteQuietly(String storageKey) {
     if (storageKey == null) return;
-    try { Files.deleteIfExists(safePath(storageKey)); } catch (Exception ignored) { }
+    try { objectStorage.delete(storageKey); } catch (Exception ignored) { }
   }
 
   private static byte[] sha256(String value) {
