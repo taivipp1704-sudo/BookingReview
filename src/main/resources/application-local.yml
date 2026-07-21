@@ -1,0 +1,5 @@
+claritycam:
+  seed-demo-data: true
+  otp:
+    expose-demo-code: true
+

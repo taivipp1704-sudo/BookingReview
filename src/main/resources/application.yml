@@ -1,0 +1,48 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+  error:
+    include-message: never
+  servlet:
+    session:
+      timeout: ${SESSION_TIMEOUT:30m}
+      cookie:
+        name: CLARITYCAM_SESSION
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:false}
+        same-site: lax
+
+spring:
+  application:
+    name: claritycam-platform-api
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/claritycam_platform?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: ${JPA_FORMAT_SQL:false}
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
+
+claritycam:
+  cors-origins: ${CORS_ORIGINS:http://127.0.0.1:5175,http://localhost:5175}
+  seed-demo-data: ${SEED_DEMO_DATA:false}
+  admin:
+    email: ${CLARITYCAM_ADMIN_EMAIL:admin@claritycam.local}
+    password: ${CLARITYCAM_ADMIN_PASSWORD:change-me-now}
+  otp:
+    expose-demo-code: ${OTP_EXPOSE_DEMO_CODE:false}
+    expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
+  identity-storage: ${IDENTITY_STORAGE:./private-data/identity}
+  identity-encryption-key: ${IDENTITY_ENCRYPTION_KEY:dev-only-change-before-production}
+  identity-retention-days: ${IDENTITY_RETENTION_DAYS:30}
+  identity-cleanup-ms: ${IDENTITY_CLEANUP_MS:3600000}
+
+spring.servlet.multipart:
+  max-file-size: 5MB
+  max-request-size: 11MB

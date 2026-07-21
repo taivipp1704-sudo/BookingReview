@@ -1,0 +1,5 @@
+target
+private-data
+*.log
+.idea
+.vscode
