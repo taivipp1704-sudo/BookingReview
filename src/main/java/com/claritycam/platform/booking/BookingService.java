@@ -17,6 +17,7 @@ import com.claritycam.platform.finance.FinanceSettlementService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -201,8 +202,8 @@ public class BookingService {
     }
 
     String token = existing == null ? UUID.randomUUID().toString() : requestedToken;
-    LocalDateTime expiresAt = existing == null
-        ? LocalDateTime.now().plus(TEMPORARY_HOLD_DURATION)
+    Instant expiresAt = existing == null
+        ? Instant.now().plus(TEMPORARY_HOLD_DURATION)
         : existing.expiresAt();
     TemporaryHold hold = new TemporaryHold(
         token,
@@ -451,7 +452,7 @@ public class BookingService {
   }
 
   private void purgeExpiredHolds() {
-    LocalDateTime now = LocalDateTime.now();
+    Instant now = Instant.now();
     temporaryHolds.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
   }
 
@@ -523,7 +524,7 @@ public class BookingService {
                       BigDecimal bundleUnitPrice, long bundleBillableUnits, int bundleExtraDays, String promotionCode,
                       String promotionName, BigDecimal discountPercent,
                       List<PromotionService.DailyDiscount> promotionBreakdown) {}
-  public record HoldResponse(String holdToken, LocalDateTime expiresAt, Quote quote) {}
+  public record HoldResponse(String holdToken, Instant expiresAt, Quote quote) {}
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
                               LocalDateTime earlyPickupTime, String identityUploadToken, String holdToken,
@@ -532,7 +533,7 @@ public class BookingService {
 
   private record TemporaryHold(String token, LocalDateTime pickupTime, LocalDateTime returnTime,
                                Map<String, Integer> items, String bundleId, String promotionCode, String ownerPhone,
-                               LocalDateTime expiresAt) {
+                               Instant expiresAt) {
     boolean overlaps(LocalDateTime from, LocalDateTime to) {
       return pickupTime.isBefore(to) && returnTime.isAfter(from);
     }

@@ -17,6 +17,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -230,6 +231,28 @@ class BookingFlowIntegrationTest {
     }
 
     releaseHold(csrf, customer, firstToken);
+  }
+
+  @Test
+  void temporaryHoldExpiryIsTimezoneAwareAndFiveMinutesLong() throws Exception {
+    Csrf csrf = csrf();
+    MockHttpSession customer = customerSession(csrf, "0903333344", "Khách kiểm tra thời gian giữ");
+    Instant requestedAt = Instant.now();
+    MvcResult result = mockMvc.perform(post("/api/bookings/hold")
+            .session(customer)
+            .cookie(csrf.cookie())
+            .header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"pickupTime\":\"2027-10-20T08:00:00\",\"returnTime\":\"2027-10-20T20:00:00\",\"items\":[{\"productId\":\"GEAR-002\",\"quantity\":1}]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.quote.available").value(true))
+        .andReturn();
+
+    JsonNode payload = objectMapper.readTree(result.getResponse().getContentAsString());
+    Instant expiresAt = Instant.parse(payload.path("expiresAt").asText());
+    assertTrue(expiresAt.isAfter(requestedAt.plusSeconds(270)));
+    assertTrue(expiresAt.isBefore(Instant.now().plusSeconds(330)));
+    releaseHold(csrf, customer, payload.path("holdToken").asText());
   }
 
   @Test
