@@ -19,7 +19,6 @@ public class AdminBootstrap {
       @Value("${claritycam.admin.email}") String email,
       @Value("${claritycam.admin.password}") String password) {
     return args -> {
-      if (users.count() > 0) return;
       if (email == null || email.isBlank()) {
         throw new IllegalStateException("CLARITYCAM_ADMIN_EMAIL is required when BOOTSTRAP_ADMIN=true");
       }
@@ -27,8 +26,18 @@ public class AdminBootstrap {
         throw new IllegalStateException(
             "CLARITYCAM_ADMIN_PASSWORD must contain at least 12 characters when BOOTSTRAP_ADMIN=true");
       }
-      users.save(new AdminUser("USR-ADMIN-001", email.trim(), passwordEncoder.encode(password), "ADMIN", true));
+      String normalizedEmail = email.trim().toLowerCase();
+      AdminUser existing = users.findByEmailIgnoreCase(normalizedEmail).orElse(null);
+      if (existing != null) {
+        existing.update("ADMIN", true, passwordEncoder.encode(password));
+        users.save(existing);
+        return;
+      }
+      if (users.count() > 0) {
+        throw new IllegalStateException(
+            "CLARITYCAM_ADMIN_EMAIL does not match an existing admin account");
+      }
+      users.save(new AdminUser("USR-ADMIN-001", normalizedEmail, passwordEncoder.encode(password), "ADMIN", true));
     };
   }
 }
-
