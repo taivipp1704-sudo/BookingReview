@@ -18,8 +18,12 @@ services:
         sync: false
       - key: CLARITYCAM_ADMIN_PASSWORD
         sync: false
+      - key: CLARITYCAM_ADMIN_EMAIL
+        sync: false
       - key: IDENTITY_ENCRYPTION_KEY
         sync: false
+      - key: BOOTSTRAP_ADMIN
+        value: "false"
       - key: SEED_DEMO_DATA
         value: "false"
       - key: SESSION_COOKIE_SECURE

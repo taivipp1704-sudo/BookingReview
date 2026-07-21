@@ -42,4 +42,8 @@ Render tu repository nay, sau do khai bao cac bien bi mat trong dashboard:
 - `DB_USERNAME`, `DB_PASSWORD`: tai khoan MySQL.
 - `CORS_ORIGINS`: domain frontend duoc phep goi API.
 - `CLARITYCAM_ADMIN_PASSWORD`: mat khau admin manh.
+- `CLARITYCAM_ADMIN_EMAIL`: email dang nhap admin.
 - `IDENTITY_ENCRYPTION_KEY`: khoa bi mat dai, ngau nhien.
+
+De tao admin dau tien ma khong nap du lieu demo, tam dat `BOOTSTRAP_ADMIN=true`
+cho lan deploy dau. Sau khi dang nhap thanh cong, doi bien nay ve `false`.
