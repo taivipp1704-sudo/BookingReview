@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: booking-review-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/catalog/products
+    autoDeployTrigger: commit
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CLARITYCAM_ADMIN_PASSWORD
+        sync: false
+      - key: IDENTITY_ENCRYPTION_KEY
+        sync: false
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: OTP_EXPOSE_DEMO_CODE
+        value: "false"
