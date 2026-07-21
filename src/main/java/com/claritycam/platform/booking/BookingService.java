@@ -11,7 +11,6 @@ import com.claritycam.platform.inventory.InventoryAssetRepository;
 import com.claritycam.platform.inventory.StockItemRepository;
 import com.claritycam.platform.customer.CustomerAccountService;
 import com.claritycam.platform.customer.IdentityDocumentService;
-import com.claritycam.platform.otp.OtpPurpose;
 import com.claritycam.platform.otp.OtpService;
 import com.claritycam.platform.promotion.PromotionService;
 import com.claritycam.platform.finance.FinanceSettlementService;
@@ -39,7 +38,6 @@ public class BookingService {
   private final ProductRepository products;
   private final InventoryAssetRepository assets;
   private final StockItemRepository stock;
-  private final OtpService otpService;
   private final RateLimitService rateLimit;
   private final AuditService audit;
   private final CustomerAccountService customerAccounts;
@@ -55,7 +53,6 @@ public class BookingService {
       ProductRepository products,
       InventoryAssetRepository assets,
       StockItemRepository stock,
-      OtpService otpService,
       RateLimitService rateLimit,
       AuditService audit,
       CustomerAccountService customerAccounts, BundleRepository bundles, PromotionService promotionService,
@@ -65,7 +62,6 @@ public class BookingService {
     this.products = products;
     this.assets = assets;
     this.stock = stock;
-    this.otpService = otpService;
     this.rateLimit = rateLimit;
     this.audit = audit;
     this.customerAccounts = customerAccounts;
@@ -252,7 +248,6 @@ public class BookingService {
     }
     rateLimit.check("booking:" + normalizedPhone, 5, Duration.ofHours(1));
     rateLimit.check("booking:ip:" + remoteAddress, 20, Duration.ofHours(1));
-    otpService.consume(request.verificationToken(), normalizedPhone, OtpPurpose.BOOKING);
     IdentityDocumentService.ClaimedDocuments claimedDocuments =
         identityDocuments.claim(request.identityUploadToken(), normalizedPhone);
 
@@ -284,7 +279,7 @@ public class BookingService {
     operations.replaceReservations(saved, ReservationType.SOFT, "PUBLIC");
     temporaryHolds.remove(holdToken);
     customerAccounts.ensure(normalizedPhone, request.customerName());
-    audit.record("PUBLIC", "BOOKING_CREATED", "BOOKING", saved.getId(), "OTP verified from " + remoteAddress);
+    audit.record("PUBLIC", "BOOKING_CREATED", "BOOKING", saved.getId(), "Customer session from " + remoteAddress);
     return saved;
   }
 
@@ -344,9 +339,8 @@ public class BookingService {
   }
 
   @Transactional
-  public Booking track(String bookingId, String phone, String verificationToken) {
+  public Booking track(String bookingId, String phone) {
     String normalizedPhone = OtpService.normalizePhone(phone);
-    otpService.consume(verificationToken, normalizedPhone, OtpPurpose.TRACK);
     Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     if (!booking.getPhoneNormalized().equals(normalizedPhone)) {
       throw ApiException.forbidden("Thông tin tra cứu không khớp.");
@@ -531,7 +525,7 @@ public class BookingService {
                       List<PromotionService.DailyDiscount> promotionBreakdown) {}
   public record HoldResponse(String holdToken, LocalDateTime expiresAt, Quote quote) {}
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
-                              LocalDateTime returnTime, String note, String verificationToken, List<ItemRequest> items,
+                              LocalDateTime returnTime, String note, List<ItemRequest> items,
                               LocalDateTime earlyPickupTime, String identityUploadToken, String holdToken,
                               String promotionCode) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}

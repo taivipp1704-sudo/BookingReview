@@ -72,7 +72,7 @@ public class BookingController {
     String sessionPhone = requireCustomerPhone(servletRequest);
     Booking booking = bookingService.submit(new BookingService.SubmitRequest(
         request.customerName(), request.phone(), request.bundleId(), request.pickupTime(), request.returnTime(),
-        request.note(), request.verificationToken(), toItems(request.items()), request.earlyPickupTime(),
+        request.note(), toItems(request.items()), request.earlyPickupTime(),
         request.identityUploadToken(), request.holdToken(), request.promotionCode()),
         sessionPhone, servletRequest.getRemoteAddr());
     servletRequest.getSession(true).setAttribute(CustomerAccountService.SESSION_PHONE, booking.getPhoneNormalized());
@@ -81,7 +81,7 @@ public class BookingController {
 
   @PostMapping("/api/bookings/track")
   PublicBookingResponse track(@Valid @RequestBody TrackBookingRequest request) {
-    return PublicBookingResponse.from(bookingService.track(request.bookingId(), request.phone(), request.verificationToken()));
+    return PublicBookingResponse.from(bookingService.track(request.bookingId(), request.phone()));
   }
 
   @GetMapping("/api/admin/bookings")
@@ -170,7 +170,6 @@ public class BookingController {
       @NotNull LocalDateTime pickupTime,
       @NotNull LocalDateTime returnTime,
       @Size(max = 1000) String note,
-      @NotBlank String verificationToken,
       @NotEmpty List<@Valid BookingItemRequest> items,
       LocalDateTime earlyPickupTime,
       @NotBlank String identityUploadToken,
@@ -179,7 +178,7 @@ public class BookingController {
 
   public record BookingItemRequest(@NotBlank String productId, int quantity) {}
   public record ReleaseHoldRequest(@NotBlank String holdToken) {}
-  public record TrackBookingRequest(@NotBlank String bookingId, @NotBlank String phone, @NotBlank String verificationToken) {}
+  public record TrackBookingRequest(@NotBlank String bookingId, @NotBlank String phone) {}
   public record ChangeStateRequest(@NotNull BookingState state, @Size(max = 500) String reason) {}
   public record EarlyPickupReviewRequest(boolean approved, @DecimalMin("0") BigDecimal fee,
                                          @Size(max = 500) String reason) {}

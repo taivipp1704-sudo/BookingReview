@@ -275,7 +275,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"2026-08-01T10:00:00\",\"returnTime\":\"2026-08-03T10:00:00\",\"earlyPickupTime\":\"2026-07-31T20:00:00\",\"note\":\"Integration test\",\"verificationToken\":\"" + verificationToken + "\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
+            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"2026-08-01T10:00:00\",\"returnTime\":\"2026-08-03T10:00:00\",\"earlyPickupTime\":\"2026-07-31T20:00:00\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
         .andExpect(status().isCreated())
         .andReturn();
     String bookingId = objectMapper.readTree(bookingResult.getResponse().getContentAsString()).path("id").asText();
@@ -303,7 +303,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"bookingId\":\"" + bookingId + "\",\"phone\":\"0901234567\",\"verificationToken\":\"" + trackToken + "\"}"))
+            .content("{\"bookingId\":\"" + bookingId + "\",\"phone\":\"0901234567\"}"))
         .andExpect(status().isOk());
 
     MvcResult login = mockMvc.perform(post("/api/auth/login")
@@ -527,25 +527,10 @@ class BookingFlowIntegrationTest {
 
   private MockHttpSession customerSession(Csrf csrf, String phone, String name) throws Exception {
     MockHttpSession session = new MockHttpSession();
-    MvcResult requested = mockMvc.perform(post("/api/otp/request")
-            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
-            .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"purpose\":\"ACCOUNT\"}"))
-        .andExpect(status().isOk()).andReturn();
-    JsonNode otp = objectMapper.readTree(requested.getResponse().getContentAsString());
-    MvcResult verified = mockMvc.perform(post("/api/otp/verify")
-            .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
-            .contentType(APPLICATION_JSON)
-            .content("{\"challengeId\":\"" + otp.path("challengeId").asText() + "\",\"phone\":\"" + phone
-                + "\",\"code\":\"" + otp.path("demoCode").asText() + "\",\"purpose\":\"ACCOUNT\"}"))
-        .andExpect(status().isOk()).andReturn();
-    String verificationToken = objectMapper.readTree(verified.getResponse().getContentAsString())
-        .path("verificationToken").asText();
     MvcResult login = mockMvc.perform(post("/api/customer/account/login")
             .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name
-                + "\",\"verificationToken\":\"" + verificationToken + "\"}"))
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\"}"))
         .andExpect(status().isOk()).andReturn();
     return (MockHttpSession) login.getRequest().getSession(false);
   }

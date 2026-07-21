@@ -47,7 +47,7 @@ public class CustomerAccountController {
 
   @PostMapping("/login")
   AccountResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-    CustomerAccount account = service.login(request.phone(), request.name(), request.verificationToken());
+    CustomerAccount account = service.login(request.phone(), request.name());
     servletRequest.getSession(true);
     servletRequest.changeSessionId();
     servletRequest.getSession(false).setAttribute(CustomerAccountService.SESSION_PHONE, account.getPhoneNormalized());
@@ -79,7 +79,7 @@ public class CustomerAccountController {
     return request.getSession(false) == null ? null : (String) request.getSession(false).getAttribute(CustomerAccountService.SESSION_PHONE);
   }
 
-  public record LoginRequest(@NotBlank String phone, @Size(max = 180) String name, @NotBlank String verificationToken) {}
+  public record LoginRequest(@NotBlank String phone, @Size(max = 180) String name) {}
   public record IdentityDocumentResponse(String uploadToken, LocalDateTime expiresAt) {}
   public record AccountResponse(String id, String name, String phone, int onboardingVersion,
                                 LocalDateTime onboardingCompletedAt) {

@@ -3,7 +3,6 @@ package com.claritycam.platform.customer;
 import com.claritycam.platform.booking.Booking;
 import com.claritycam.platform.booking.BookingRepository;
 import com.claritycam.platform.common.ApiException;
-import com.claritycam.platform.otp.OtpPurpose;
 import com.claritycam.platform.otp.OtpService;
 import java.util.List;
 import java.util.UUID;
@@ -15,16 +14,14 @@ public class CustomerAccountService {
   public static final String SESSION_PHONE = "CLARITYCAM_CUSTOMER_PHONE";
   private final CustomerAccountRepository accounts;
   private final BookingRepository bookings;
-  private final OtpService otp;
 
-  public CustomerAccountService(CustomerAccountRepository accounts, BookingRepository bookings, OtpService otp) {
-    this.accounts = accounts; this.bookings = bookings; this.otp = otp;
+  public CustomerAccountService(CustomerAccountRepository accounts, BookingRepository bookings) {
+    this.accounts = accounts; this.bookings = bookings;
   }
 
   @Transactional
-  public CustomerAccount login(String phone, String name, String verificationToken) {
+  public CustomerAccount login(String phone, String name) {
     String normalized = OtpService.normalizePhone(phone);
-    otp.consume(verificationToken, normalized, OtpPurpose.ACCOUNT);
     CustomerAccount account = ensure(normalized, name);
     account.login(name);
     return accounts.save(account);
