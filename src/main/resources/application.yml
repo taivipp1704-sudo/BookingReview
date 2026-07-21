@@ -39,6 +39,17 @@ claritycam:
   otp:
     expose-demo-code: ${OTP_EXPOSE_DEMO_CODE:false}
     expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
+  sms:
+    provider: ${SMS_PROVIDER:none}
+    esms:
+      api-url: ${ESMS_API_URL:https://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/}
+      api-key: ${ESMS_API_KEY:}
+      secret-key: ${ESMS_SECRET_KEY:}
+      brandname: ${ESMS_BRANDNAME:}
+      template: ${ESMS_TEMPLATE:}
+      sms-type: ${ESMS_SMS_TYPE:2}
+      is-unicode: ${ESMS_IS_UNICODE:0}
+      sandbox: ${ESMS_SANDBOX:false}
   identity-storage: ${IDENTITY_STORAGE:./private-data/identity}
   identity-storage-provider: ${IDENTITY_STORAGE_PROVIDER:local}
   identity-encryption-key: ${IDENTITY_ENCRYPTION_KEY:dev-only-change-before-production}

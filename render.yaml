@@ -40,3 +40,19 @@ services:
         value: "true"
       - key: OTP_EXPOSE_DEMO_CODE
         value: "false"
+      - key: SMS_PROVIDER
+        value: "none"
+      - key: ESMS_API_KEY
+        sync: false
+      - key: ESMS_SECRET_KEY
+        sync: false
+      - key: ESMS_BRANDNAME
+        sync: false
+      - key: ESMS_TEMPLATE
+        sync: false
+      - key: ESMS_SMS_TYPE
+        value: "2"
+      - key: ESMS_IS_UNICODE
+        value: "0"
+      - key: ESMS_SANDBOX
+        value: "false"

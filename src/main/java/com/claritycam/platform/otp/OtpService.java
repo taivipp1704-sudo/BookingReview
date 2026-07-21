@@ -24,6 +24,7 @@ public class OtpService {
   private final OtpChallengeRepository challenges;
   private final PasswordEncoder passwordEncoder;
   private final RateLimitService rateLimit;
+  private final SmsDeliveryService smsDelivery;
   private final boolean exposeDemoCode;
   private final int expiryMinutes;
 
@@ -31,15 +32,18 @@ public class OtpService {
       OtpChallengeRepository challenges,
       PasswordEncoder passwordEncoder,
       RateLimitService rateLimit,
+      SmsDeliveryService smsDelivery,
       @Value("${claritycam.otp.expose-demo-code:false}") boolean exposeDemoCode,
       @Value("${claritycam.otp.expiry-minutes:5}") int expiryMinutes) {
     this.challenges = challenges;
     this.passwordEncoder = passwordEncoder;
     this.rateLimit = rateLimit;
+    this.smsDelivery = smsDelivery;
     this.exposeDemoCode = exposeDemoCode;
     this.expiryMinutes = expiryMinutes;
   }
 
+  @Transactional
   public RequestedOtp request(String phone, OtpPurpose purpose, String remoteAddress) {
     String normalizedPhone = normalizePhone(phone);
     String phoneHash = sha256(normalizedPhone);
@@ -48,13 +52,19 @@ public class OtpService {
 
     String code = String.format("%06d", RANDOM.nextInt(1_000_000));
     LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(expiryMinutes);
+    String challengeId = UUID.randomUUID().toString();
     OtpChallenge challenge = new OtpChallenge(
-        UUID.randomUUID().toString(),
+        challengeId,
         phoneHash,
         passwordEncoder.encode(code),
         purpose,
         expiresAt);
     challenges.save(challenge);
+    if (smsDelivery.isEnabled()) {
+      smsDelivery.sendOtp(normalizedPhone, code, expiryMinutes, challengeId);
+    } else if (!exposeDemoCode) {
+      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Dịch vụ gửi SMS OTP chưa được cấu hình.");
+    }
     return new RequestedOtp(challenge.getId(), expiresAt, exposeDemoCode ? code : null);
   }
 

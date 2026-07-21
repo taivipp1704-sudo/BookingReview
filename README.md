@@ -48,5 +48,21 @@ Render tu repository nay, sau do khai bao cac bien bi mat trong dashboard:
 - `R2_ENDPOINT`, `R2_BUCKET`: endpoint tai khoan va bucket R2 private.
 - `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`: token R2 chi co quyen object read/write tren bucket.
 
+### Gui OTP that qua eSMS
+
+Dang ky tai khoan eSMS, lay API key/secret va dang ky Brandname + template voi nha
+mang. Sau do dat cac bien Render sau:
+
+- `SMS_PROVIDER=esms`
+- `ESMS_API_KEY`, `ESMS_SECRET_KEY`: khoa API eSMS.
+- `ESMS_BRANDNAME`: Brandname da duoc phe duyet.
+- `ESMS_TEMPLATE`: mau tin da duoc phe duyet, bat buoc co `{OTP}`; co the dung
+  `{MINUTES}` cho thoi gian hieu luc.
+- `ESMS_SMS_TYPE=2`, `ESMS_IS_UNICODE=0`, `ESMS_SANDBOX=false`.
+
+De kiem tra ket noi ma khong gui/khong tru tien, dung `ESMS_SANDBOX=true`. Khi
+`SMS_PROVIDER=none` va `OTP_EXPOSE_DEMO_CODE=false`, endpoint yeu cau OTP tra ve
+503 thay vi thong bao thanh cong gia.
+
 De tao admin dau tien ma khong nap du lieu demo, tam dat `BOOTSTRAP_ADMIN=true`
 cho lan deploy dau. Sau khi dang nhap thanh cong, doi bien nay ve `false`.
