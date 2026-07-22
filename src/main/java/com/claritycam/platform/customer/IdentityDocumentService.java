@@ -179,6 +179,23 @@ public class IdentityDocumentService {
     try { objectStorage.delete(storageKey); } catch (Exception ignored) { }
   }
 
+  @Transactional
+  public UploadReceipt storeSingle(MultipartFile file, String ownerPhone) {
+    byte[] normalized = normalizeImage(file, "bằng chứng thanh toán");
+    String storageKey = UUID.randomUUID() + ".bin";
+    try {
+      writeEncrypted(storageKey, normalized);
+      LocalDateTime now = LocalDateTime.now();
+      IdentityUpload upload = uploads.save(new IdentityUpload(UUID.randomUUID().toString(), fingerprint(ownerPhone),
+          storageKey, storageKey, now, now.plusMinutes(15)));
+      return new UploadReceipt(upload.getId(), upload.getExpiresAt());
+    } catch (RuntimeException error) {
+      deleteQuietly(storageKey);
+      if (error instanceof ApiException apiException) throw apiException;
+      throw new IllegalStateException("Không thể lưu bằng chứng thanh toán.", error);
+    }
+  }
+
   private static byte[] sha256(String value) {
     try {
       return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));

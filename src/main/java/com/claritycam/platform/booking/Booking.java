@@ -45,6 +45,7 @@ public class Booking {
   private boolean kycApproved;
   private String identityFrontReference;
   private String identityBackReference;
+  private String paymentProofReference;
   private String bundleId;
   private String promotionCode;
   private String note;
@@ -160,6 +161,8 @@ public class Booking {
   public String getIdentityFrontReference() { return identityFrontReference; }
   public String getIdentityBackReference() { return identityBackReference; }
   public void attachIdentityDocuments(String front, String back) { this.identityFrontReference = front; this.identityBackReference = back; }
+  public String getPaymentProofReference() { return paymentProofReference; }
+  public void attachPaymentProof(String reference) { this.paymentProofReference = reference; }
   public void applyPromotion(BigDecimal subtotal, BigDecimal discount, String code) {
     this.subtotalAmount = subtotal;
     this.discountAmount = discount == null ? BigDecimal.ZERO : discount;

@@ -45,6 +45,15 @@ public class CustomerAccountController {
     return new IdentityDocumentResponse(receipt.uploadToken(), receipt.expiresAt());
   }
 
+  @PostMapping(value = "/payment-proof", consumes = "multipart/form-data")
+  IdentityDocumentResponse uploadPaymentProof(@RequestPart("file") MultipartFile file, HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("payment-proof:phone:" + phone, 8, Duration.ofHours(1));
+    rateLimit.check("payment-proof:ip:" + request.getRemoteAddr(), 20, Duration.ofHours(1));
+    IdentityDocumentService.UploadReceipt receipt = identityDocuments.storeSingle(file, phone);
+    return new IdentityDocumentResponse(receipt.uploadToken(), receipt.expiresAt());
+  }
+
   @PostMapping("/login")
   AccountResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
     CustomerAccount account = service.login(request.phone(), request.name());

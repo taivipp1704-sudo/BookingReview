@@ -73,7 +73,7 @@ public class BookingController {
     Booking booking = bookingService.submit(new BookingService.SubmitRequest(
         request.customerName(), request.phone(), request.bundleId(), request.pickupTime(), request.returnTime(),
         request.note(), toItems(request.items()), request.earlyPickupTime(),
-        request.identityUploadToken(), request.holdToken(), request.promotionCode()),
+        request.identityUploadToken(), request.paymentProofUploadToken(), request.holdToken(), request.promotionCode()),
         sessionPhone, servletRequest.getRemoteAddr());
     servletRequest.getSession(true).setAttribute(CustomerAccountService.SESSION_PHONE, booking.getPhoneNormalized());
     return PublicBookingResponse.from(booking);
@@ -111,6 +111,19 @@ public class BookingController {
       Authentication authentication) {
     var image = bookingService.identityDocument(id, side);
     auditService.record(authentication.getName(), "IDENTITY_DOCUMENT_VIEWED", "BOOKING", id, side.toLowerCase());
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(image.contentType()))
+        .header("Cache-Control", "no-store, private, max-age=0")
+        .header("Pragma", "no-cache")
+        .header("X-Content-Type-Options", "nosniff")
+        .body(image.bytes());
+  }
+
+  @GetMapping("/api/admin/bookings/{id}/payment-proof")
+  @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+  ResponseEntity<byte[]> paymentProof(@PathVariable String id, Authentication authentication) {
+    var image = bookingService.paymentProof(id);
+    auditService.record(authentication.getName(), "PAYMENT_PROOF_VIEWED", "BOOKING", id, "BANK_TRANSFER");
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(image.contentType()))
         .header("Cache-Control", "no-store, private, max-age=0")
@@ -173,6 +186,7 @@ public class BookingController {
       @NotEmpty List<@Valid BookingItemRequest> items,
       LocalDateTime earlyPickupTime,
       @NotBlank String identityUploadToken,
+      @NotBlank String paymentProofUploadToken,
       @NotBlank String holdToken,
       String promotionCode) {}
 
@@ -220,6 +234,7 @@ public class BookingController {
       boolean earlyPickupApproved,
       BigDecimal earlyPickupFee,
       boolean identityDocumentsAvailable,
+      boolean paymentProofAvailable,
       List<BookingLine> items) {
     static AdminBookingResponse from(Booking booking) {
       return new AdminBookingResponse(
@@ -230,6 +245,7 @@ public class BookingController {
           booking.getNote(), booking.getLastActionReason(), booking.getCreatedAt(),
           booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),
           booking.getEarlyPickupFee(), booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
+          booking.getPaymentProofReference() != null,
           booking.getItems());
     }
   }

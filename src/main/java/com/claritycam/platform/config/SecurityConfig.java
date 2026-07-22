@@ -92,7 +92,7 @@ public class SecurityConfig {
             .referrerPolicy(policy -> policy.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
         .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.GET, "/api/catalog/**", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/catalog/**", "/api/media/catalog/**", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/otp/**", "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release", "/api/bookings/track", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")

@@ -251,6 +251,8 @@ public class BookingService {
     rateLimit.check("booking:ip:" + remoteAddress, 20, Duration.ofHours(1));
     IdentityDocumentService.ClaimedDocuments claimedDocuments =
         identityDocuments.claim(request.identityUploadToken(), normalizedPhone);
+    IdentityDocumentService.ClaimedDocuments claimedPaymentProof =
+        identityDocuments.claim(request.paymentProofUploadToken(), normalizedPhone);
 
     List<BookingLine> lines = quote.lines().stream()
         .map(line -> new BookingLine(line.productId(), null, line.quantity(), line.dailyPrice(), line.unitPrice(),
@@ -276,6 +278,7 @@ public class BookingService {
     booking.applyPromotion(quote.subtotalAmount(), quote.discountAmount(), quote.promotionCode());
     booking.applyPaymentBreakdown(quote.equipmentDeposit(), quote.bookingDeposit(), quote.amountDueNow());
     booking.attachIdentityDocuments(claimedDocuments.frontStorageKey(), claimedDocuments.backStorageKey());
+    booking.attachPaymentProof(claimedPaymentProof.frontStorageKey());
     Booking saved = bookings.save(booking);
     operations.replaceReservations(saved, ReservationType.SOFT, "PUBLIC");
     temporaryHolds.remove(holdToken);
@@ -456,6 +459,11 @@ public class BookingService {
     temporaryHolds.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
   }
 
+  public IdentityDocumentService.StoredImage paymentProof(String bookingId) {
+    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    return identityDocuments.read(booking.getPaymentProofReference());
+  }
+
   private static String normalizeToken(String token) {
     return token == null || token.isBlank() ? null : token.trim();
   }
@@ -527,8 +535,8 @@ public class BookingService {
   public record HoldResponse(String holdToken, Instant expiresAt, Quote quote) {}
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
-                              LocalDateTime earlyPickupTime, String identityUploadToken, String holdToken,
-                              String promotionCode) {}
+                               LocalDateTime earlyPickupTime, String identityUploadToken, String paymentProofUploadToken,
+                               String holdToken, String promotionCode) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}
 
   private record TemporaryHold(String token, LocalDateTime pickupTime, LocalDateTime returnTime,
