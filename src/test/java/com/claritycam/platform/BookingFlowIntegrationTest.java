@@ -523,6 +523,16 @@ class BookingFlowIntegrationTest {
   void adminCreatesProductsTogetherWithTheirInitialInventory() throws Exception {
     Csrf csrf = csrf();
     MockHttpSession admin = adminSession(csrf);
+    MvcResult branchResult = mockMvc.perform(post("/api/admin/stores")
+            .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("""
+                {"name":"Kho sản phẩm kiểm thử","address":"456 Đường kiểm thử, TP.HCM",
+                 "phone":"0909111222","note":"Gắn sản phẩm theo chi nhánh","active":true,"sortOrder":2}
+                """))
+        .andExpect(status().isCreated())
+        .andReturn();
+    String storeBranchId = objectMapper.readTree(branchResult.getResponse().getContentAsString()).path("id").asText();
 
     mockMvc.perform(post("/api/admin/catalog/products/with-inventory")
             .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
@@ -545,15 +555,17 @@ class BookingFlowIntegrationTest {
                     "specs": "Integration test camera",
                     "trackingMode": "SERIALIZED",
                     "serialPrefix": "TESTCAM",
+                    "storeBranchId": "%s",
                     "bookingCountBase": 0,
                     "customAttributes": "{}"
                   },
                   "initialStockQty": 0,
                   "serialNumbers": ["TESTCAM-001", "TESTCAM-002"]
                 }
-                """))
+                """.formatted(storeBranchId)))
         .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").value("GEAR-TEST-001"));
+        .andExpect(jsonPath("$.id").value("GEAR-TEST-001"))
+        .andExpect(jsonPath("$.storeBranchId").value(storeBranchId));
 
     assertEquals("GEAR-TEST-001", inventoryAssets.findById("TESTCAM-001").orElseThrow().getProductId());
     assertEquals("AVAILABLE", inventoryAssets.findById("TESTCAM-002").orElseThrow().getStatus());

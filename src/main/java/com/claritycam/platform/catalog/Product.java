@@ -36,6 +36,8 @@ public class Product {
   private String specs;
   private String trackingMode;
   private String serialPrefix;
+  @Column(length = 64)
+  private String storeBranchId;
   private long bookingCountBase;
 
   @Transient
@@ -119,6 +121,8 @@ public class Product {
     this.specs = payload.specs().trim();
     this.trackingMode = payload.trackingMode();
     this.serialPrefix = payload.serialPrefix() == null ? "" : payload.serialPrefix().trim();
+    this.storeBranchId = payload.storeBranchId() == null || payload.storeBranchId().isBlank()
+        ? null : payload.storeBranchId().trim();
     this.bookingCountBase = payload.bookingCountBase();
     this.customAttributes = payload.customAttributes() == null || payload.customAttributes().isBlank()
         ? "{}" : payload.customAttributes().trim();
@@ -193,6 +197,7 @@ public class Product {
   public String getSpecs() { return specs; }
   public String getTrackingMode() { return trackingMode; }
   public String getSerialPrefix() { return serialPrefix; }
+  public String getStoreBranchId() { return storeBranchId; }
   public String getCustomAttributes() { return customAttributes; }
   public long getBookingCountBase() { return bookingCountBase; }
   public long getBookingCount() { return bookingCount; }

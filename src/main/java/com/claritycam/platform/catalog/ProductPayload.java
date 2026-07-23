@@ -34,5 +34,6 @@ public record ProductPayload(
     @NotBlank @Size(max = 500) String specs,
     @NotBlank @Pattern(regexp = "SERIALIZED|BATCH_TRACKED|QUANTITY|CONSUMABLE|BULK") String trackingMode,
     @Size(max = 48) String serialPrefix,
+    @Size(max = 64) String storeBranchId,
     @Min(0) @Max(1_000_000_000) long bookingCountBase,
     @Size(max = 4000) String customAttributes) {}

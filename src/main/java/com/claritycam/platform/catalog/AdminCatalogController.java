@@ -7,6 +7,7 @@ import com.claritycam.platform.inventory.InventoryAssetRepository;
 import com.claritycam.platform.inventory.InventoryLedgerService;
 import com.claritycam.platform.inventory.StockItem;
 import com.claritycam.platform.inventory.StockItemRepository;
+import com.claritycam.platform.store.StoreBranchRepository;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -37,16 +38,18 @@ public class AdminCatalogController {
   private final InventoryAssetRepository assets;
   private final StockItemRepository stock;
   private final InventoryLedgerService ledger;
+  private final StoreBranchRepository storeBranches;
 
   public AdminCatalogController(ProductRepository products, AuditService audit,
       ProductBookingCountService bookingCounts, InventoryAssetRepository assets,
-      StockItemRepository stock, InventoryLedgerService ledger) {
+      StockItemRepository stock, InventoryLedgerService ledger, StoreBranchRepository storeBranches) {
     this.products = products;
     this.audit = audit;
     this.bookingCounts = bookingCounts;
     this.assets = assets;
     this.stock = stock;
     this.ledger = ledger;
+    this.storeBranches = storeBranches;
   }
 
   @GetMapping("/products")
@@ -61,6 +64,7 @@ public class AdminCatalogController {
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   Product create(@Valid @RequestBody ProductPayload payload, Authentication authentication) {
+    validateStoreBranch(payload.storeBranchId());
     String productId = productId(null, payload);
     Product product = products.save(new Product(productId, payload));
     audit.record(authentication.getName(), "CATALOG_PRODUCT_CREATED", "PRODUCT", product.getId(), product.getName());
@@ -73,6 +77,7 @@ public class AdminCatalogController {
   @Transactional
   Product createWithInventory(@Valid @RequestBody ProductCreatePayload request, Authentication authentication) {
     ProductPayload payload = request.product();
+    validateStoreBranch(payload.storeBranchId());
     String productId = productId(request.productCode(), payload);
     if (products.existsById(productId)) {
       throw ApiException.badRequest("Mã sản phẩm đã tồn tại.");
@@ -115,6 +120,7 @@ public class AdminCatalogController {
   @PatchMapping("/products/{id}")
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   Product update(@PathVariable String id, @Valid @RequestBody ProductPayload payload, Authentication authentication) {
+    validateStoreBranch(payload.storeBranchId());
     Product product = products.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy thiết bị."));
     product.apply(payload);
     Product saved = products.save(product);
@@ -150,5 +156,12 @@ public class AdminCatalogController {
       throw ApiException.badRequest("Danh sách serial có giá trị trùng nhau.");
     }
     return normalized;
+  }
+
+  private void validateStoreBranch(String storeBranchId) {
+    if (storeBranchId == null || storeBranchId.isBlank()) return;
+    if (!storeBranches.existsById(storeBranchId.trim())) {
+      throw ApiException.badRequest("Chi nhánh được chọn không tồn tại.");
+    }
   }
 }
