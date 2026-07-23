@@ -234,6 +234,30 @@ class BookingFlowIntegrationTest {
   }
 
   @Test
+  void adminConfiguresBranchesAndCustomersOnlySeeActiveLocations() throws Exception {
+    Csrf csrf = csrf();
+    MockHttpSession admin = adminSession(csrf);
+    MvcResult created = mockMvc.perform(post("/api/admin/stores")
+            .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("""
+                {"name":"Chi nhánh kiểm thử","address":"123 Đường kiểm thử, TP.HCM",
+                 "phone":"0909000000","note":"Dữ liệu test","active":true,"sortOrder":1}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.code").value(org.hamcrest.Matchers.startsWith("STORE-")))
+        .andReturn();
+
+    String branchId = objectMapper.readTree(created.getResponse().getContentAsString()).path("id").asText();
+    mockMvc.perform(get("/api/stores"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(branchId))
+        .andExpect(jsonPath("$[0].address").value("123 Đường kiểm thử, TP.HCM"))
+        .andExpect(jsonPath("$[0].note").doesNotExist())
+        .andExpect(jsonPath("$[0].createdAt").doesNotExist());
+  }
+
+  @Test
   void temporaryHoldExpiryIsTimezoneAwareAndFiveMinutesLong() throws Exception {
     Csrf csrf = csrf();
     MockHttpSession customer = customerSession(csrf, "0903333344", "Khách kiểm tra thời gian giữ");

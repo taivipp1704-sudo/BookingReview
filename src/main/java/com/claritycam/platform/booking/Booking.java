@@ -48,6 +48,10 @@ public class Booking {
   private String paymentProofReference;
   private String bundleId;
   private String promotionCode;
+  private String storeBranchId;
+  private String storeBranchCode;
+  private String storeBranchName;
+  private String storeBranchAddress;
   private String note;
   private String lastActionReason;
   private LocalDateTime createdAt;
@@ -170,6 +174,16 @@ public class Booking {
   }
   public String getBundleId() { return bundleId; }
   public String getPromotionCode() { return promotionCode; }
+  public String getStoreBranchId() { return storeBranchId; }
+  public String getStoreBranchCode() { return storeBranchCode; }
+  public String getStoreBranchName() { return storeBranchName; }
+  public String getStoreBranchAddress() { return storeBranchAddress; }
+  public void assignStoreBranch(String id, String code, String name, String address) {
+    this.storeBranchId = id;
+    this.storeBranchCode = code;
+    this.storeBranchName = name;
+    this.storeBranchAddress = address;
+  }
   public BigDecimal getSubtotalAmount() { return subtotalAmount == null ? totalAmount : subtotalAmount; }
   public BigDecimal getDiscountAmount() { return discountAmount == null ? BigDecimal.ZERO : discountAmount; }
   public String getNote() { return note; }

@@ -144,7 +144,9 @@ public class CustomerAccountController {
       BigDecimal amountDueNow, String promotionCode, LocalDateTime pickupTime,
       LocalDateTime returnTime, boolean earlyPickupRequested, LocalDateTime earlyPickupTime,
       boolean earlyPickupApproved, BigDecimal earlyPickupFee, LocalDateTime holdExpiresAt,
-      boolean identityDocumentsAvailable, boolean paymentProofAvailable, List<BookingLine> items) {
+      boolean identityDocumentsAvailable, boolean paymentProofAvailable,
+      String storeBranchId, String storeBranchCode, String storeBranchName, String storeBranchAddress,
+      List<BookingLine> items) {
     static AccountBookingResponse from(Booking booking) { return new AccountBookingResponse(booking.getId(), booking.getState(),
         booking.getSubtotalAmount(), booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(),
         booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getPromotionCode(),
@@ -152,6 +154,8 @@ public class CustomerAccountController {
         booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),
         booking.getEarlyPickupFee(), booking.getHoldExpiresAt(),
         booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
-        booking.getPaymentProofReference() != null, booking.getItems()); }
+        booking.getPaymentProofReference() != null,
+        booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
+        booking.getStoreBranchAddress(), booking.getItems()); }
   }
 }

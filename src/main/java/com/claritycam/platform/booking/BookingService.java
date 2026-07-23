@@ -14,6 +14,8 @@ import com.claritycam.platform.customer.IdentityDocumentService;
 import com.claritycam.platform.otp.OtpService;
 import com.claritycam.platform.promotion.PromotionService;
 import com.claritycam.platform.finance.FinanceSettlementService;
+import com.claritycam.platform.store.StoreBranch;
+import com.claritycam.platform.store.StoreBranchService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -47,6 +49,7 @@ public class BookingService {
   private final IdentityDocumentService identityDocuments;
   private final BookingOperationsService operations;
   private final FinanceSettlementService financeSettlement;
+  private final StoreBranchService storeBranches;
   private final Map<String, TemporaryHold> temporaryHolds = new ConcurrentHashMap<>();
 
   public BookingService(
@@ -58,7 +61,7 @@ public class BookingService {
       AuditService audit,
       CustomerAccountService customerAccounts, BundleRepository bundles, PromotionService promotionService,
       IdentityDocumentService identityDocuments, BookingOperationsService operations,
-      FinanceSettlementService financeSettlement) {
+      FinanceSettlementService financeSettlement, StoreBranchService storeBranches) {
     this.bookings = bookings;
     this.products = products;
     this.assets = assets;
@@ -71,6 +74,7 @@ public class BookingService {
     this.identityDocuments = identityDocuments;
     this.operations = operations;
     this.financeSettlement = financeSettlement;
+    this.storeBranches = storeBranches;
   }
 
   public Quote quote(QuoteRequest request) {
@@ -259,6 +263,7 @@ public class BookingService {
         identityDocuments.claim(request.identityUploadToken(), normalizedPhone);
     IdentityDocumentService.ClaimedDocuments claimedPaymentProof =
         identityDocuments.claim(request.paymentProofUploadToken(), normalizedPhone);
+    StoreBranch storeBranch = storeBranches.requireForBooking(request.storeBranchId());
 
     List<BookingLine> lines = quote.lines().stream()
         .map(line -> new BookingLine(line.productId(), null, line.quantity(), line.dailyPrice(), line.unitPrice(),
@@ -277,6 +282,8 @@ public class BookingService {
         request.bundleId(),
         request.note(),
         lines);
+    booking.assignStoreBranch(storeBranch.getId(), storeBranch.getCode(), storeBranch.getName(),
+        storeBranch.getAddress());
     booking.requestEarlyPickup(request.earlyPickupTime());
     booking.applyPromotion(quote.subtotalAmount(), quote.discountAmount(), quote.promotionCode());
     booking.applyPaymentBreakdown(quote.equipmentDeposit(), quote.bookingDeposit(), quote.amountDueNow());
@@ -563,7 +570,7 @@ public class BookingService {
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
                                LocalDateTime earlyPickupTime, String identityUploadToken, String paymentProofUploadToken,
-                               String holdToken, String promotionCode) {}
+                               String holdToken, String promotionCode, String storeBranchId) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}
 
   private record TemporaryHold(String token, LocalDateTime pickupTime, LocalDateTime returnTime,

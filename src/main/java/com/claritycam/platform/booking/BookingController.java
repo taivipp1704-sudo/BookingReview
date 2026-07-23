@@ -73,7 +73,8 @@ public class BookingController {
     Booking booking = bookingService.submit(new BookingService.SubmitRequest(
         request.customerName(), request.phone(), request.bundleId(), request.pickupTime(), request.returnTime(),
         request.note(), toItems(request.items()), request.earlyPickupTime(),
-        request.identityUploadToken(), request.paymentProofUploadToken(), request.holdToken(), request.promotionCode()),
+        request.identityUploadToken(), request.paymentProofUploadToken(), request.holdToken(), request.promotionCode(),
+        request.storeBranchId()),
         sessionPhone, servletRequest.getRemoteAddr());
     servletRequest.getSession(true).setAttribute(CustomerAccountService.SESSION_PHONE, booking.getPhoneNormalized());
     return PublicBookingResponse.from(booking);
@@ -188,7 +189,8 @@ public class BookingController {
       @NotBlank String identityUploadToken,
       @NotBlank String paymentProofUploadToken,
       @NotBlank String holdToken,
-      String promotionCode) {}
+      String promotionCode,
+      String storeBranchId) {}
 
   public record BookingItemRequest(@NotBlank String productId, int quantity) {}
   public record ReleaseHoldRequest(@NotBlank String holdToken) {}
@@ -200,12 +202,16 @@ public class BookingController {
   public record PublicBookingResponse(String id, BookingState state, BigDecimal subtotalAmount, BigDecimal discountAmount,
                                       BigDecimal totalAmount, BigDecimal depositRequired, BigDecimal equipmentDeposit,
                                       BigDecimal bookingDeposit, BigDecimal amountDueNow, String promotionCode,
-                                      LocalDateTime pickupTime, LocalDateTime returnTime, String note) {
+                                      LocalDateTime pickupTime, LocalDateTime returnTime, String note,
+                                      String storeBranchId, String storeBranchCode, String storeBranchName,
+                                      String storeBranchAddress) {
     static PublicBookingResponse from(Booking booking) {
       return new PublicBookingResponse(booking.getId(), booking.getState(), booking.getSubtotalAmount(),
           booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(), booking.getEquipmentDeposit(),
           booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getPromotionCode(),
-          booking.getPickupTime(), booking.getReturnTime(), booking.getNote());
+          booking.getPickupTime(), booking.getReturnTime(), booking.getNote(),
+          booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
+          booking.getStoreBranchAddress());
     }
   }
 
@@ -235,6 +241,10 @@ public class BookingController {
       BigDecimal earlyPickupFee,
       boolean identityDocumentsAvailable,
       boolean paymentProofAvailable,
+      String storeBranchId,
+      String storeBranchCode,
+      String storeBranchName,
+      String storeBranchAddress,
       List<BookingLine> items) {
     static AdminBookingResponse from(Booking booking) {
       return new AdminBookingResponse(
@@ -246,6 +256,8 @@ public class BookingController {
           booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),
           booking.getEarlyPickupFee(), booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
           booking.getPaymentProofReference() != null,
+          booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
+          booking.getStoreBranchAddress(),
           booking.getItems());
     }
   }
