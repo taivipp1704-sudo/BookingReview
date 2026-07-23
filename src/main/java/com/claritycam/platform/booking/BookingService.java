@@ -299,6 +299,15 @@ public class BookingService {
 
   public IdentityDocumentService.StoredImage identityDocument(String bookingId, String side) {
     Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    return identityDocument(booking, side);
+  }
+
+  public IdentityDocumentService.StoredImage identityDocumentForCustomer(
+      String bookingId, String phoneNormalized, String side) {
+    return identityDocument(requireCustomerBooking(bookingId, phoneNormalized), side);
+  }
+
+  private IdentityDocumentService.StoredImage identityDocument(Booking booking, String side) {
     String reference = switch (side.toLowerCase()) {
       case "front" -> booking.getIdentityFrontReference();
       case "back" -> booking.getIdentityBackReference();
@@ -465,6 +474,21 @@ public class BookingService {
   public IdentityDocumentService.StoredImage paymentProof(String bookingId) {
     Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     return identityDocuments.read(booking.getPaymentProofReference());
+  }
+
+  public IdentityDocumentService.StoredImage paymentProofForCustomer(
+      String bookingId, String phoneNormalized) {
+    Booking booking = requireCustomerBooking(bookingId, phoneNormalized);
+    return identityDocuments.read(booking.getPaymentProofReference());
+  }
+
+  private Booking requireCustomerBooking(String bookingId, String phoneNormalized) {
+    Booking booking = bookings.findById(bookingId)
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    if (phoneNormalized == null || !phoneNormalized.equals(booking.getPhoneNormalized())) {
+      throw ApiException.forbidden("Bạn không có quyền xem tài liệu của booking này.");
+    }
+    return booking;
   }
 
   private static String normalizeToken(String token) {

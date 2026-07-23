@@ -1,7 +1,9 @@
 package com.claritycam.platform.customer;
 
+import com.claritycam.platform.audit.AuditService;
 import com.claritycam.platform.booking.Booking;
 import com.claritycam.platform.booking.BookingLine;
+import com.claritycam.platform.booking.BookingService;
 import com.claritycam.platform.booking.BookingState;
 import com.claritycam.platform.common.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,7 +15,10 @@ import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,11 +32,19 @@ import org.springframework.web.multipart.MultipartFile;
 public class CustomerAccountController {
   private final CustomerAccountService service;
   private final IdentityDocumentService identityDocuments;
+  private final BookingService bookingService;
+  private final AuditService auditService;
   private final RateLimitService rateLimit;
-  public CustomerAccountController(CustomerAccountService service, IdentityDocumentService identityDocuments,
+  public CustomerAccountController(
+      CustomerAccountService service,
+      IdentityDocumentService identityDocuments,
+      BookingService bookingService,
+      AuditService auditService,
       RateLimitService rateLimit) {
     this.service = service;
     this.identityDocuments = identityDocuments;
+    this.bookingService = bookingService;
+    this.auditService = auditService;
     this.rateLimit = rateLimit;
   }
 
@@ -73,6 +86,25 @@ public class CustomerAccountController {
     return service.bookings(sessionPhone(request)).stream().map(AccountBookingResponse::from).toList();
   }
 
+  @GetMapping("/bookings/{id}/identity/{side}")
+  ResponseEntity<byte[]> identityDocument(
+      @PathVariable String id,
+      @PathVariable String side,
+      HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    var image = bookingService.identityDocumentForCustomer(id, phone, side);
+    auditService.record("customer:" + phone, "IDENTITY_DOCUMENT_VIEWED", "BOOKING", id, side.toLowerCase());
+    return privateImage(image);
+  }
+
+  @GetMapping("/bookings/{id}/payment-proof")
+  ResponseEntity<byte[]> paymentProof(@PathVariable String id, HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    var image = bookingService.paymentProofForCustomer(id, phone);
+    auditService.record("customer:" + phone, "PAYMENT_PROOF_VIEWED", "BOOKING", id, "BANK_TRANSFER");
+    return privateImage(image);
+  }
+
   @PostMapping("/onboarding/complete")
   AccountResponse completeOnboarding(HttpServletRequest request) {
     return AccountResponse.from(service.completeOnboarding(sessionPhone(request), 1));
@@ -88,6 +120,16 @@ public class CustomerAccountController {
     return request.getSession(false) == null ? null : (String) request.getSession(false).getAttribute(CustomerAccountService.SESSION_PHONE);
   }
 
+  private static ResponseEntity<byte[]> privateImage(IdentityDocumentService.StoredImage image) {
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(image.contentType()))
+        .header("Content-Disposition", "inline")
+        .header("Cache-Control", "no-store, private, max-age=0")
+        .header("Pragma", "no-cache")
+        .header("X-Content-Type-Options", "nosniff")
+        .body(image.bytes());
+  }
+
   public record LoginRequest(@NotBlank String phone, @Size(max = 180) String name) {}
   public record IdentityDocumentResponse(String uploadToken, LocalDateTime expiresAt) {}
   public record AccountResponse(String id, String name, String phone, int onboardingVersion,
@@ -101,12 +143,15 @@ public class CustomerAccountController {
       BigDecimal totalAmount, BigDecimal depositRequired, BigDecimal equipmentDeposit, BigDecimal bookingDeposit,
       BigDecimal amountDueNow, String promotionCode, LocalDateTime pickupTime,
       LocalDateTime returnTime, boolean earlyPickupRequested, LocalDateTime earlyPickupTime,
-      boolean earlyPickupApproved, BigDecimal earlyPickupFee, LocalDateTime holdExpiresAt, List<BookingLine> items) {
+      boolean earlyPickupApproved, BigDecimal earlyPickupFee, LocalDateTime holdExpiresAt,
+      boolean identityDocumentsAvailable, boolean paymentProofAvailable, List<BookingLine> items) {
     static AccountBookingResponse from(Booking booking) { return new AccountBookingResponse(booking.getId(), booking.getState(),
         booking.getSubtotalAmount(), booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(),
         booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getPromotionCode(),
         booking.getPickupTime(), booking.getReturnTime(),
         booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),
-        booking.getEarlyPickupFee(), booking.getHoldExpiresAt(), booking.getItems()); }
+        booking.getEarlyPickupFee(), booking.getHoldExpiresAt(),
+        booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
+        booking.getPaymentProofReference() != null, booking.getItems()); }
   }
 }

@@ -313,6 +313,29 @@ class BookingFlowIntegrationTest {
     String bookingId = objectMapper.readTree(bookingResult.getResponse().getContentAsString()).path("id").asText();
     assertEquals(bookingCountBefore + 1, bookingCountFor("GEAR-001"));
 
+    mockMvc.perform(get("/api/customer/account/bookings").session(customerSession))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].identityDocumentsAvailable").value(true))
+        .andExpect(jsonPath("$[0].paymentProofAvailable").value(true));
+
+    MvcResult customerIdentity = mockMvc.perform(
+            get("/api/customer/account/bookings/{id}/identity/front", bookingId).session(customerSession))
+        .andExpect(status().isOk())
+        .andReturn();
+    assertEquals("image/jpeg", customerIdentity.getResponse().getContentType());
+    assertTrue(customerIdentity.getResponse().getContentAsByteArray().length > 0);
+
+    MvcResult customerPaymentProof = mockMvc.perform(
+            get("/api/customer/account/bookings/{id}/payment-proof", bookingId).session(customerSession))
+        .andExpect(status().isOk())
+        .andReturn();
+    assertEquals("image/jpeg", customerPaymentProof.getResponse().getContentType());
+    assertTrue(customerPaymentProof.getResponse().getContentAsByteArray().length > 0);
+
+    MockHttpSession otherCustomer = customerSession(csrf, "0909999999", "Khách khác");
+    mockMvc.perform(get("/api/customer/account/bookings/{id}/identity/front", bookingId).session(otherCustomer))
+        .andExpect(status().isForbidden());
+
     MvcResult trackOtpRequest = mockMvc.perform(post("/api/otp/request")
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
