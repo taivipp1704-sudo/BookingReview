@@ -5,7 +5,7 @@ server:
     include-message: never
   servlet:
     session:
-      timeout: ${SESSION_TIMEOUT:30m}
+      timeout: 15m
       cookie:
         name: CLARITYCAM_SESSION
         http-only: true
