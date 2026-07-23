@@ -231,8 +231,14 @@ public class BookingService {
     if (!normalizedPhone.equals(OtpService.normalizePhone(sessionPhone))) {
       throw ApiException.forbidden("Tài khoản đăng nhập không khớp với số điện thoại đặt thuê.");
     }
-    if (request.earlyPickupTime() != null && !request.earlyPickupTime().isBefore(request.pickupTime())) {
-      throw ApiException.badRequest("Thời gian nhận sớm phải trước thời gian nhận máy chính thức.");
+    if (request.earlyPickupTime() != null) {
+      LocalDateTime earliestEarlyPickup =
+          request.pickupTime().toLocalDate().minusDays(1).atTime(21, 0);
+      if (request.earlyPickupTime().isBefore(earliestEarlyPickup)
+          || !request.earlyPickupTime().isBefore(request.pickupTime())) {
+        throw ApiException.badRequest(
+            "Thời gian nhận sớm phải từ 21:00 ngày trước và trước thời gian nhận máy chính thức.");
+      }
     }
     purgeExpiredHolds();
     String holdToken = normalizeToken(request.holdToken());
@@ -271,9 +277,6 @@ public class BookingService {
         request.bundleId(),
         request.note(),
         lines);
-    if (request.earlyPickupTime() != null && !request.earlyPickupTime().isBefore(request.pickupTime())) {
-      throw ApiException.badRequest("Thời gian nhận sớm phải trước thời gian nhận máy chính thức.");
-    }
     booking.requestEarlyPickup(request.earlyPickupTime());
     booking.applyPromotion(quote.subtotalAmount(), quote.discountAmount(), quote.promotionCode());
     booking.applyPaymentBreakdown(quote.equipmentDeposit(), quote.bookingDeposit(), quote.amountDueNow());

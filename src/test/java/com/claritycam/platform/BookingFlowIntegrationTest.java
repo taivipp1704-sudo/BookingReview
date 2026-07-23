@@ -294,12 +294,20 @@ class BookingFlowIntegrationTest {
         .andReturn();
     String holdToken = objectMapper.readTree(holdResult.getResponse().getContentAsString()).path("holdToken").asText();
 
-    MvcResult bookingResult = mockMvc.perform(post("/api/bookings")
+    mockMvc.perform(post("/api/bookings")
             .session(customerSession)
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
             .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"2026-08-01T10:00:00\",\"returnTime\":\"2026-08-03T10:00:00\",\"earlyPickupTime\":\"2026-07-31T20:00:00\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"paymentProofUploadToken\":\"" + paymentProofUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
+        .andExpect(status().isBadRequest());
+
+    MvcResult bookingResult = mockMvc.perform(post("/api/bookings")
+            .session(customerSession)
+            .cookie(csrf.cookie())
+            .header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"2026-08-01T10:00:00\",\"returnTime\":\"2026-08-03T10:00:00\",\"earlyPickupTime\":\"2026-07-31T21:00:00\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"paymentProofUploadToken\":\"" + paymentProofUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
         .andExpect(status().isCreated())
         .andReturn();
     String bookingId = objectMapper.readTree(bookingResult.getResponse().getContentAsString()).path("id").asText();
