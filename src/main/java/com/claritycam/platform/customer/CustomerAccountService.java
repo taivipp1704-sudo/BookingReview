@@ -26,6 +26,9 @@ public class CustomerAccountService {
         .orElseThrow(() -> ApiException.unauthorized(
             "Không tìm thấy tài khoản. Vui lòng chuyển sang Đăng ký."));
     account.login(name);
+    if (account.getOnboardingVersion() < 1 && bookings.existsByPhoneNormalized(normalized)) {
+      account.completeOnboarding(1);
+    }
     return accounts.save(account);
   }
 

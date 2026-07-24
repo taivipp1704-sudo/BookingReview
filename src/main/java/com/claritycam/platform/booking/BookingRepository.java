@@ -37,6 +37,8 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
   @Query("select distinct booking from Booking booking left join fetch booking.items where booking.phoneNormalized = :phone order by booking.createdAt desc")
   List<Booking> findByPhoneWithItems(@Param("phone") String phone);
 
+  boolean existsByPhoneNormalized(String phoneNormalized);
+
   interface ProductBookingCount {
     String getProductId();
     long getBookingCount();
