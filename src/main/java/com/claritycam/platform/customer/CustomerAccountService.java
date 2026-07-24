@@ -22,9 +22,26 @@ public class CustomerAccountService {
   @Transactional
   public CustomerAccount login(String phone, String name) {
     String normalized = OtpService.normalizePhone(phone);
-    CustomerAccount account = ensure(normalized, name);
+    CustomerAccount account = accounts.findByPhoneNormalized(normalized)
+        .orElseThrow(() -> ApiException.unauthorized(
+            "Không tìm thấy tài khoản. Vui lòng chuyển sang Đăng ký."));
     account.login(name);
     return accounts.save(account);
+  }
+
+  @Transactional
+  public CustomerAccount register(String phone, String name) {
+    String normalized = OtpService.normalizePhone(phone);
+    if (name == null || name.isBlank()) {
+      throw ApiException.badRequest("Vui lòng nhập họ và tên để đăng ký.");
+    }
+    if (accounts.findByPhoneNormalized(normalized).isPresent()) {
+      throw ApiException.badRequest("Số điện thoại đã có tài khoản. Vui lòng đăng nhập.");
+    }
+    return accounts.save(new CustomerAccount(
+        "CUS-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(),
+        normalized,
+        name.trim()));
   }
 
   @Transactional

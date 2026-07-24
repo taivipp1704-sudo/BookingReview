@@ -70,10 +70,22 @@ public class CustomerAccountController {
   @PostMapping("/login")
   AccountResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
     CustomerAccount account = service.login(request.phone(), request.name());
+    establishSession(account, servletRequest);
+    return AccountResponse.from(account);
+  }
+
+  @PostMapping("/register")
+  @ResponseStatus(HttpStatus.CREATED)
+  AccountResponse register(@Valid @RequestBody RegisterRequest request, HttpServletRequest servletRequest) {
+    CustomerAccount account = service.register(request.phone(), request.name());
+    establishSession(account, servletRequest);
+    return AccountResponse.from(account);
+  }
+
+  private void establishSession(CustomerAccount account, HttpServletRequest servletRequest) {
     servletRequest.getSession(true);
     servletRequest.changeSessionId();
     servletRequest.getSession(false).setAttribute(CustomerAccountService.SESSION_PHONE, account.getPhoneNormalized());
-    return AccountResponse.from(account);
   }
 
   @GetMapping("/me")
@@ -131,6 +143,7 @@ public class CustomerAccountController {
   }
 
   public record LoginRequest(@NotBlank String phone, @Size(max = 180) String name) {}
+  public record RegisterRequest(@NotBlank String phone, @NotBlank @Size(max = 180) String name) {}
   public record IdentityDocumentResponse(String uploadToken, LocalDateTime expiresAt) {}
   public record AccountResponse(String id, String name, String phone, int onboardingVersion,
                                 LocalDateTime onboardingCompletedAt) {

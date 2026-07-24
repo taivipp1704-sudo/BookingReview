@@ -104,6 +104,32 @@ class BookingFlowIntegrationTest {
   }
 
   @Test
+  void customerRegistrationAndLoginAreSeparateActions() throws Exception {
+    Csrf csrf = csrf();
+    String phone = "0907004004";
+
+    mockMvc.perform(post("/api/customer/account/login")
+            .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khách mới\"}"))
+        .andExpect(status().isUnauthorized());
+
+    mockMvc.perform(post("/api/customer/account/register")
+            .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khách mới\"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.phone").value(phone))
+        .andExpect(jsonPath("$.onboardingVersion").value(0));
+
+    mockMvc.perform(post("/api/customer/account/login")
+            .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khách mới\"}"))
+        .andExpect(status().isOk());
+  }
+
+  @Test
   void bundleUpdatePublishesANewImmutableVersion() throws Exception {
     Csrf csrf = csrf();
     MockHttpSession admin = adminSession(csrf);
@@ -618,11 +644,11 @@ class BookingFlowIntegrationTest {
 
   private MockHttpSession customerSession(Csrf csrf, String phone, String name) throws Exception {
     MockHttpSession session = new MockHttpSession();
-    MvcResult login = mockMvc.perform(post("/api/customer/account/login")
+    MvcResult login = mockMvc.perform(post("/api/customer/account/register")
             .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
             .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\"}"))
-        .andExpect(status().isOk()).andReturn();
+        .andExpect(status().isCreated()).andReturn();
     return (MockHttpSession) login.getRequest().getSession(false);
   }
 
