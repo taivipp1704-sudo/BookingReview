@@ -49,14 +49,16 @@ public class BookingController {
   BookingService.Quote quote(@Valid @RequestBody QuoteRequest request, HttpServletRequest servletRequest) {
     rateLimit.check("quote:ip:" + servletRequest.getRemoteAddr(), 120, Duration.ofMinutes(1));
     return bookingService.quote(new BookingService.QuoteRequest(request.pickupTime(), request.returnTime(),
-        toItems(request.items()), request.bundleId(), request.holdToken(), request.promotionCode()));
+        toItems(request.items()), request.bundleId(), request.holdToken(), request.promotionCode(),
+        request.rentalRate()));
   }
 
   @PostMapping("/api/bookings/hold")
   BookingService.HoldResponse hold(@Valid @RequestBody QuoteRequest request, HttpServletRequest servletRequest) {
     String phone = requireCustomerPhone(servletRequest);
     return bookingService.hold(new BookingService.QuoteRequest(request.pickupTime(), request.returnTime(),
-        toItems(request.items()), request.bundleId(), request.holdToken(), request.promotionCode()),
+        toItems(request.items()), request.bundleId(), request.holdToken(), request.promotionCode(),
+        request.rentalRate()),
         phone, servletRequest.getRemoteAddr());
   }
 
@@ -74,7 +76,7 @@ public class BookingController {
         request.customerName(), request.phone(), request.bundleId(), request.pickupTime(), request.returnTime(),
         request.note(), toItems(request.items()), request.earlyPickupTime(),
         request.identityUploadToken(), request.paymentProofUploadToken(), request.holdToken(), request.promotionCode(),
-        request.storeBranchId()),
+        request.storeBranchId(), request.rentalRate()),
         sessionPhone, servletRequest.getRemoteAddr());
     servletRequest.getSession(true).setAttribute(CustomerAccountService.SESSION_PHONE, booking.getPhoneNormalized());
     return PublicBookingResponse.from(booking);
@@ -175,7 +177,8 @@ public class BookingController {
       @NotEmpty List<@Valid BookingItemRequest> items,
       String bundleId,
       String holdToken,
-      String promotionCode) {}
+      String promotionCode,
+      String rentalRate) {}
 
   public record SubmitBookingRequest(
       @NotBlank @Size(max = 180) String customerName,
@@ -190,7 +193,8 @@ public class BookingController {
       @NotBlank String paymentProofUploadToken,
       @NotBlank String holdToken,
       String promotionCode,
-      String storeBranchId) {}
+      String storeBranchId,
+      String rentalRate) {}
 
   public record BookingItemRequest(@NotBlank String productId, int quantity) {}
   public record ReleaseHoldRequest(@NotBlank String holdToken) {}

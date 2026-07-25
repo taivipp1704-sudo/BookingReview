@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -88,6 +89,7 @@ public class BookingService {
     long rentalMinutes = Math.max(1, Duration.between(request.pickupTime(), request.returnTime()).toMinutes());
     long rentalHours = Math.max(1, (rentalMinutes + 59) / 60);
     long rentalDays = rentalDays(request.pickupTime(), request.returnTime());
+    String rentalRate = normalizeRentalRate(request.rentalRate());
     List<QuoteLine> lines = new ArrayList<>();
     List<String> unavailable = new ArrayList<>();
     BigDecimal total = BigDecimal.ZERO;
@@ -111,7 +113,7 @@ public class BookingService {
       }
       RentalPricing.Charge charge = RentalPricing.calculateProduct(product.getHourlyPrice(), product.getHalfDayPrice(),
           product.getDailyPrice(), product.getTwoDayPrice(), product.getMultiDayPrice(), product.getExtraDayPrice(),
-          request.pickupTime(), request.returnTime());
+          product.getMultiDayDays(), request.pickupTime(), request.returnTime(), rentalRate);
       BigDecimal lineTotal = charge.total().multiply(BigDecimal.valueOf(quantity));
       total = total.add(lineTotal);
       equipmentDeposit = equipmentDeposit.add(product.getEquipmentDeposit().multiply(BigDecimal.valueOf(quantity)));
@@ -143,11 +145,12 @@ public class BookingService {
         if (requested < bundleItem.getQuantity()) throw ApiException.badRequest("Chưa chọn đủ thiết bị trong combo " + bundle.getName() + ".");
         RentalPricing.Charge includedCharge = RentalPricing.calculateProduct(includedProduct.getHourlyPrice(),
             includedProduct.getHalfDayPrice(), includedProduct.getDailyPrice(), includedProduct.getTwoDayPrice(),
-            includedProduct.getMultiDayPrice(), includedProduct.getExtraDayPrice(), request.pickupTime(), request.returnTime());
+            includedProduct.getMultiDayPrice(), includedProduct.getExtraDayPrice(), includedProduct.getMultiDayDays(),
+            request.pickupTime(), request.returnTime(), rentalRate);
         includedRetail = includedRetail.add(includedCharge.total().multiply(BigDecimal.valueOf(bundleItem.getQuantity())));
       }
       bundleCharge = RentalPricing.calculate(bundle.getHourlyPrice(), bundle.getDailyPrice(), bundle.getMultiDayPrice(),
-          bundle.getMultiDayDays(), request.pickupTime(), request.returnTime());
+          bundle.getMultiDayDays(), request.pickupTime(), request.returnTime(), rentalRate);
       total = total.subtract(includedRetail).add(bundleCharge.total());
       bundleName = bundle.getName();
     }
@@ -199,7 +202,7 @@ public class BookingService {
     QuoteRequest effectiveRequest = existing == null || request.holdToken() != null
         ? request
         : new QuoteRequest(request.pickupTime(), request.returnTime(), request.items(), request.bundleId(),
-            requestedToken, request.promotionCode());
+            requestedToken, request.promotionCode(), request.rentalRate());
     Quote quote = quote(effectiveRequest, null);
     if (!quote.available()) {
       return new HoldResponse(requestedToken, existing == null ? null : existing.expiresAt(), quote);
@@ -216,6 +219,7 @@ public class BookingService {
         Map.copyOf(normalizeItems(request.items())),
         normalizeBundleId(request.bundleId()),
         normalizePromotionCode(request.promotionCode()),
+        normalizeRentalRate(request.rentalRate()),
         normalizedOwner,
         expiresAt);
     temporaryHolds.put(token, hold);
@@ -249,11 +253,12 @@ public class BookingService {
     TemporaryHold hold = holdToken == null ? null : temporaryHolds.get(holdToken);
     Map<String, Integer> requestedItems = normalizeItems(request.items());
     if (hold == null || !hold.ownerPhone().equals(normalizedPhone)
-        || !hold.matches(request.pickupTime(), request.returnTime(), requestedItems, request.bundleId(), request.promotionCode())) {
+        || !hold.matches(request.pickupTime(), request.returnTime(), requestedItems, request.bundleId(),
+            request.promotionCode(), request.rentalRate())) {
       throw ApiException.badRequest("Phiên giữ máy không hợp lệ hoặc đã hết hạn. Vui lòng bắt đầu lại.");
     }
     Quote quote = quote(new QuoteRequest(request.pickupTime(), request.returnTime(), request.items(),
-        request.bundleId(), holdToken, request.promotionCode()));
+        request.bundleId(), holdToken, request.promotionCode(), request.rentalRate()));
     if (!quote.available()) {
       throw ApiException.badRequest("Một hoặc nhiều thiết bị hiện không còn sẵn sàng: " + String.join(", ", quote.unavailableProducts()));
     }
@@ -334,7 +339,7 @@ public class BookingService {
         || nextState == BookingState.CONFIRMED || nextState == BookingState.READY_FOR_PICKUP) {
       Quote quote = quote(new QuoteRequest(booking.getPickupTime(), booking.getReturnTime(), booking.getItems().stream()
           .map(item -> new ItemRequest(item.getProductId(), item.getQuantity()))
-          .toList(), booking.getBundleId(), null, booking.getPromotionCode()), booking.getId());
+          .toList(), booking.getBundleId(), null, booking.getPromotionCode(), null), booking.getId());
       if (!quote.available()) {
         throw ApiException.badRequest("Không thể giữ/duyệt đơn vì kho không sẵn sàng: " + String.join(", ", quote.unavailableProducts()));
       }
@@ -510,6 +515,15 @@ public class BookingService {
     return promotionCode == null || promotionCode.isBlank() ? null : promotionCode.trim().toUpperCase();
   }
 
+  private static String normalizeRentalRate(String rentalRate) {
+    if (rentalRate == null || rentalRate.isBlank()) return null;
+    String normalized = rentalRate.trim().toUpperCase();
+    if (!Set.of("HOURLY", "HALF_DAY", "DAILY", "TWO_DAY", "MULTI_DAY").contains(normalized)) {
+      throw ApiException.badRequest("Gói giá thuê không hợp lệ.");
+    }
+    return normalized;
+  }
+
   private static boolean matches(Booking booking, String query) {
     if (query == null || query.isBlank()) {
       return true;
@@ -552,7 +566,7 @@ public class BookingService {
 
   public record ItemRequest(String productId, int quantity) {}
   public record QuoteRequest(LocalDateTime pickupTime, LocalDateTime returnTime, List<ItemRequest> items,
-                             String bundleId, String holdToken, String promotionCode) {}
+                             String bundleId, String holdToken, String promotionCode, String rentalRate) {}
   public record QuoteLine(String productId, String name, BigDecimal dailyPrice, BigDecimal unitPrice,
                           String pricingMode, long billableUnits, int extraDays, int quantity,
                           BigDecimal lineTotal, boolean available) {}
@@ -570,23 +584,24 @@ public class BookingService {
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
                                LocalDateTime earlyPickupTime, String identityUploadToken, String paymentProofUploadToken,
-                               String holdToken, String promotionCode, String storeBranchId) {}
+                               String holdToken, String promotionCode, String storeBranchId, String rentalRate) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}
 
   private record TemporaryHold(String token, LocalDateTime pickupTime, LocalDateTime returnTime,
-                               Map<String, Integer> items, String bundleId, String promotionCode, String ownerPhone,
-                               Instant expiresAt) {
+                               Map<String, Integer> items, String bundleId, String promotionCode, String rentalRate,
+                               String ownerPhone, Instant expiresAt) {
     boolean overlaps(LocalDateTime from, LocalDateTime to) {
       return pickupTime.isBefore(to) && returnTime.isAfter(from);
     }
 
     boolean matches(LocalDateTime pickup, LocalDateTime returned, Map<String, Integer> requestedItems,
-                    String requestedBundleId, String requestedPromotionCode) {
+                    String requestedBundleId, String requestedPromotionCode, String requestedRentalRate) {
       return pickupTime.equals(pickup)
           && returnTime.equals(returned)
           && items.equals(requestedItems)
           && Objects.equals(bundleId, normalizeBundleId(requestedBundleId))
-          && Objects.equals(promotionCode, normalizePromotionCode(requestedPromotionCode));
+          && Objects.equals(promotionCode, normalizePromotionCode(requestedPromotionCode))
+          && Objects.equals(rentalRate, normalizeRentalRate(requestedRentalRate));
     }
   }
 }

@@ -31,6 +31,18 @@ class RentalPricingTest {
     assertEquals(0, charge.total().compareTo(BigDecimal.valueOf(4_000_000)));
   }
 
+  @Test
+  void selectedMultiDayPackageKeepsItsPriceWhenReturnClockIsLater() {
+    var charge = RentalPricing.calculateProduct(
+        BigDecimal.valueOf(100_000), BigDecimal.valueOf(500_000), BigDecimal.valueOf(1_000_000),
+        BigDecimal.valueOf(1_800_000), BigDecimal.valueOf(2_600_000), BigDecimal.valueOf(700_000),
+        3, START, START.plusDays(3).plusHours(1), "MULTI_DAY");
+
+    assertEquals("MULTI_DAY", charge.pricingMode());
+    assertEquals(0, charge.extraDays());
+    assertEquals(0, charge.total().compareTo(BigDecimal.valueOf(2_600_000)));
+  }
+
   private RentalPricing.Charge price(LocalDateTime returned) {
     return RentalPricing.calculateProduct(
         BigDecimal.valueOf(100_000), BigDecimal.valueOf(500_000), BigDecimal.valueOf(1_000_000),
