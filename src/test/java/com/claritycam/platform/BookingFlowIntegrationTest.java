@@ -293,6 +293,22 @@ class BookingFlowIntegrationTest {
   }
 
   @Test
+  void invalidAdminCredentialsReturnUnauthorizedInsteadOfServerError() throws Exception {
+    Csrf csrf = csrf();
+    mockMvc.perform(post("/api/auth/login")
+            .with(request -> {
+              request.setRemoteAddr("203.0.113.77");
+              return request;
+            })
+            .cookie(csrf.cookie())
+            .header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"email\":\"missing-auth-test@claritycam.local\",\"password\":\"Definitely-Wrong#2026\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.message").value("Email hoặc mật khẩu không đúng."));
+  }
+
+  @Test
   void quotesBundleUsingConfiguredPackagePrice() throws Exception {
     Csrf csrf = csrf();
     mockMvc.perform(post("/api/bookings/quote")

@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -31,6 +32,13 @@ public class ApiExceptionHandler {
         .map(error -> error.getField() + ": " + error.getDefaultMessage())
         .orElse("Dữ liệu gửi lên không hợp lệ.");
     return response(HttpStatus.BAD_REQUEST, message, request);
+  }
+
+  @ExceptionHandler(AuthenticationException.class)
+  ResponseEntity<Map<String, Object>> handleAuthentication(
+      AuthenticationException exception, HttpServletRequest request) {
+    return response(HttpStatus.UNAUTHORIZED,
+        "Email hoặc mật khẩu không đúng.", request);
   }
 
   @ExceptionHandler(AccessDeniedException.class)
