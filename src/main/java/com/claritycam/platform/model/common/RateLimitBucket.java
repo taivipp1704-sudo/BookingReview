@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Table(name = "api_rate_limit_buckets")
 public class RateLimitBucket {
   @Id
-  @Column(length = 64)
+  @Column(length = 64, columnDefinition = "CHAR(64)")
   private String keyHash;
   private int hits;
   private LocalDateTime windowStartedAt;
