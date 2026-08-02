@@ -46,7 +46,8 @@ public final class TidbProductionAdmin {
 
     public static void main(String[] args) throws Exception {
         if (args.length != 1) {
-            throw new IllegalArgumentException("Usage: backup-verify | create-users | verify-users");
+            throw new IllegalArgumentException(
+                    "Usage: backup-verify | baseline-flyway | repair-flyway | create-users | verify-users");
         }
 
         Class.forName("com.mysql.cj.jdbc.Driver");
@@ -57,11 +58,61 @@ public final class TidbProductionAdmin {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, username, password)) {
             switch (args[0]) {
                 case "backup-verify" -> backupAndVerify(connection, jdbcUrl, username, password);
+                case "baseline-flyway" -> baselineFlyway(connection, username);
+                case "repair-flyway" -> repairFlyway(connection);
                 case "create-users" -> createUsers(connection);
                 case "verify-users" -> verifyUsers(connection);
                 default -> throw new IllegalArgumentException("Unknown command: " + args[0]);
             }
         }
+    }
+
+    private static void repairFlyway(Connection connection) throws Exception {
+        int failedRows;
+        try (Statement statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery(
+                     "SELECT COUNT(*) FROM `flyway_schema_history` WHERE `success` = 0")) {
+            rows.next();
+            failedRows = rows.getInt(1);
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM `flyway_schema_history` WHERE `success` = 0");
+        }
+        System.out.println("FLYWAY_REPAIR_OK removed_failed_rows=" + failedRows);
+    }
+
+    private static void baselineFlyway(Connection connection, String installedBy) throws Exception {
+        String createHistory = """
+                CREATE TABLE IF NOT EXISTS `flyway_schema_history` (
+                  `installed_rank` INT NOT NULL,
+                  `version` VARCHAR(50),
+                  `description` VARCHAR(200) NOT NULL,
+                  `type` VARCHAR(20) NOT NULL,
+                  `script` VARCHAR(1000) NOT NULL,
+                  `checksum` INT,
+                  `installed_by` VARCHAR(100) NOT NULL,
+                  `installed_on` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  `execution_time` INT NOT NULL,
+                  `success` BOOL NOT NULL,
+                  CONSTRAINT `flyway_schema_history_pk` PRIMARY KEY (`installed_rank`),
+                  INDEX `flyway_schema_history_s_idx` (`success`)
+                ) ENGINE=InnoDB
+                """;
+        execute(connection, createHistory);
+
+        try (Statement statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM `flyway_schema_history`")) {
+            rows.next();
+            if (rows.getLong(1) == 0) {
+                String safeInstalledBy = escapeSql(installedBy);
+                execute(connection, "INSERT INTO `flyway_schema_history` "
+                        + "(`installed_rank`,`version`,`description`,`type`,`script`,`checksum`,"
+                        + "`installed_by`,`execution_time`,`success`) VALUES "
+                        + "(1,'0','<< Flyway Baseline >>','BASELINE','<< Flyway Baseline >>',NULL,'"
+                        + safeInstalledBy + "',0,1)");
+            }
+        }
+        System.out.println("FLYWAY_BASELINE_OK version=0");
     }
 
     private static void backupAndVerify(

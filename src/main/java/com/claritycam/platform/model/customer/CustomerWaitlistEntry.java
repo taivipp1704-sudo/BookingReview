@@ -21,7 +21,7 @@ public class CustomerWaitlistEntry {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
-  @Column(name = "account_id", nullable = false, length = 64)
+  @Column(name = "account_id", nullable = false)
   private String accountId;
 
   @Column(name = "phone_normalized", nullable = false, length = 20)

@@ -1,18 +1,18 @@
 CREATE TABLE IF NOT EXISTS customer_accounts (
-  id VARCHAR(64) NOT NULL,
-  phone_normalized VARCHAR(20) NOT NULL,
-  name VARCHAR(180) NOT NULL,
+  id VARCHAR(255) NOT NULL,
+  phone_normalized VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
   created_at DATETIME(6) NULL,
   last_login_at DATETIME(6) NULL,
   onboarding_version INT NOT NULL DEFAULT 0,
   onboarding_completed_at DATETIME(6) NULL,
   PRIMARY KEY (id),
   CONSTRAINT uk_customer_accounts_phone UNIQUE (phone_normalized)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE TABLE IF NOT EXISTS customer_waitlist (
   id BIGINT NOT NULL AUTO_INCREMENT,
-  account_id VARCHAR(64) NOT NULL,
+  account_id VARCHAR(255) NOT NULL,
   phone_normalized VARCHAR(20) NOT NULL,
   name VARCHAR(180) NOT NULL,
   status VARCHAR(24) NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS customer_waitlist (
   CONSTRAINT uk_customer_waitlist_phone UNIQUE (phone_normalized),
   CONSTRAINT uk_customer_waitlist_account UNIQUE (account_id),
   CONSTRAINT fk_customer_waitlist_account FOREIGN KEY (account_id) REFERENCES customer_accounts(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
 CREATE TABLE IF NOT EXISTS imported_reference_records (
   id VARCHAR(160) NOT NULL,
@@ -38,4 +38,4 @@ CREATE TABLE IF NOT EXISTS imported_reference_records (
   imported_at DATETIME(6) NOT NULL,
   PRIMARY KEY (id),
   INDEX idx_imported_reference_category_status (category, review_status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
