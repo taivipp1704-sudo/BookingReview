@@ -132,7 +132,7 @@ class BookingFlowIntegrationTest {
     mockMvc.perform(post("/api/customer/account/register")
             .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"password\":\"password-123\",\"consentAccepted\":true}"))
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"email\":\"khach4004@example.com\",\"password\":\"password-123\",\"consentAccepted\":true}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.phone").value(phone))
         .andExpect(jsonPath("$.onboardingVersion").value(0));
@@ -156,6 +156,43 @@ class BookingFlowIntegrationTest {
         .andExpect(status().isNoContent())
         .andExpect(header().string("Clear-Site-Data", "\"cache\", \"cookies\", \"storage\""));
     assertTrue(loginSession.isInvalid());
+  }
+
+  @Test
+  void adminManagesCustomerAccountsWithoutExposingPasswordData() throws Exception {
+    Csrf csrf = csrf();
+    String phone = "0907888999";
+    MockHttpSession customer = customerSession(csrf, phone, "Khách quản trị");
+    MockHttpSession admin = adminSession(csrf);
+
+    MvcResult accountList = mockMvc.perform(get("/api/admin/customer-accounts")
+            .session(admin).param("query", phone))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.items[0].phone").value(phone))
+        .andExpect(jsonPath("$.items[0].email").value("customer-" + phone + "@example.com"))
+        .andExpect(jsonPath("$.items[0].passwordConfigured").value(true))
+        .andExpect(jsonPath("$.items[0].passwordHash").doesNotExist())
+        .andExpect(jsonPath("$.items[0].password").doesNotExist())
+        .andReturn();
+    String accountId = objectMapper.readTree(accountList.getResponse().getContentAsString())
+        .path("items").path(0).path("id").asText();
+
+    mockMvc.perform(post("/api/admin/customer-accounts/{id}/password-reset", accountId)
+            .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"temporaryPassword\":\"Temporary@2026Pass\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.mustChangePassword").value(true))
+        .andExpect(jsonPath("$.passwordHash").doesNotExist());
+
+    mockMvc.perform(post("/api/customer/account/password/change")
+            .session(customer).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"currentPassword\":\"Temporary@2026Pass\",\"newPassword\":\"Private@2026Password\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.mustChangePassword").value(false))
+        .andExpect(jsonPath("$.passwordHash").doesNotExist());
   }
 
   @Test
@@ -741,7 +778,7 @@ class BookingFlowIntegrationTest {
     MvcResult login = mockMvc.perform(post("/api/customer/account/register")
             .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\",\"password\":\"test-password\",\"consentAccepted\":true}"))
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\",\"email\":\"customer-" + phone + "@example.com\",\"password\":\"test-password\",\"consentAccepted\":true}"))
         .andExpect(status().isCreated()).andReturn();
     return (MockHttpSession) login.getRequest().getSession(false);
   }

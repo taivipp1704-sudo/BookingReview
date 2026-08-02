@@ -99,6 +99,7 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/features", "/api/catalog/**", "/api/media/catalog/**", "/api/stores", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**", "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release", "/api/bookings/track", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
+            .requestMatchers("/api/admin/customer-accounts/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/inventory/**").hasAnyRole("ADMIN", "MANAGER", "WAREHOUSE", "TECH")
             .requestMatchers("/api/admin/finance/**", "/api/finance/**").hasAnyRole("ADMIN", "MANAGER")

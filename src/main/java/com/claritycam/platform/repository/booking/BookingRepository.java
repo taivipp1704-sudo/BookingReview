@@ -40,6 +40,7 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
   List<Booking> findByPhoneWithItems(@Param("phone") String phone);
 
   boolean existsByPhoneNormalized(String phoneNormalized);
+  long countByPhoneNormalized(String phoneNormalized);
 
   interface ProductBookingCount {
     String getProductId();

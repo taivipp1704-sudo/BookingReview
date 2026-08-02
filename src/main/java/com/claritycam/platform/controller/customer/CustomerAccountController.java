@@ -14,11 +14,14 @@ import com.claritycam.platform.service.common.RateLimitService;
 import com.claritycam.platform.service.common.ClientAddressResolver;
 import com.claritycam.platform.service.common.ReleaseFeatureService;
 import com.claritycam.platform.service.otp.OtpService;
+import com.claritycam.platform.config.PasswordPolicy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -105,7 +108,7 @@ public class CustomerAccountController {
     rateLimit.check("customer-register:phone:" + phone, 5, Duration.ofHours(1));
     rateLimit.check("customer-register:ip:" + clientAddressResolver.resolve(servletRequest), 10, Duration.ofHours(1));
     releaseFeatures.requireEarlyAccessRegistrationEnabled();
-    CustomerAccount account = service.register(request.phone(), request.name(), request.password());
+    CustomerAccount account = service.register(request.phone(), request.name(), request.email(), request.password());
     waitlist.recordRegisteredAccount(account);
     establishSession(account, servletRequest);
     return AccountResponse.from(account);
@@ -151,6 +154,19 @@ public class CustomerAccountController {
     return AccountResponse.from(service.completeOnboarding(sessionPhone(request), 1));
   }
 
+  @PostMapping("/password/change")
+  AccountResponse changePassword(@Valid @RequestBody ChangePasswordRequest body,
+      HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("customer-password-change:phone:" + phone, 5, Duration.ofHours(1));
+    rateLimit.check("customer-password-change:ip:" + clientAddressResolver.resolve(request), 15,
+        Duration.ofHours(1));
+    CustomerAccount account = service.changePassword(phone, body.currentPassword(), body.newPassword());
+    auditService.record("customer:" + phone, "CUSTOMER_PASSWORD_CHANGED", "CUSTOMER_ACCOUNT",
+        account.getId(), "SELF_SERVICE");
+    return AccountResponse.from(account);
+  }
+
   @PostMapping("/logout")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   void logout(HttpServletRequest request, HttpServletResponse response) {
@@ -178,13 +194,20 @@ public class CustomerAccountController {
   public record RegisterRequest(
       @NotBlank @Size(max = 20) String phone,
       @NotBlank @Size(max = 180) String name,
+      @NotBlank @Email @Size(max = 255) String email,
       @NotBlank @Size(min = 8, max = 72) String password,
       @AssertTrue boolean consentAccepted) {}
+  public record ChangePasswordRequest(
+      @NotBlank @Size(min = 8, max = 128) String currentPassword,
+      @NotBlank @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
+      String newPassword) {}
   public record IdentityDocumentResponse(String uploadToken, LocalDateTime expiresAt) {}
-  public record AccountResponse(String id, String name, String phone, int onboardingVersion,
+  public record AccountResponse(String id, String name, String email, String phone, boolean active,
+                                boolean mustChangePassword, int onboardingVersion,
                                 LocalDateTime onboardingCompletedAt) {
     static AccountResponse from(CustomerAccount account) {
-      return new AccountResponse(account.getId(), account.getName(), account.getPhoneNormalized(),
+      return new AccountResponse(account.getId(), account.getName(), account.getEmail(),
+          account.getPhoneNormalized(), account.isActive(), account.isMustChangePassword(),
           account.getOnboardingVersion(), account.getOnboardingCompletedAt());
     }
   }

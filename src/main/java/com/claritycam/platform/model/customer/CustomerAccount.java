@@ -12,7 +12,10 @@ public class CustomerAccount {
   @Id private String id;
   @Column(unique = true, nullable = false) private String phoneNormalized;
   @Column(nullable = false) private String name;
+  @Column(unique = true, length = 255) private String email;
   @Column(length = 100) private String passwordHash;
+  @Column(nullable = false) private boolean active = true;
+  @Column(nullable = false) private boolean mustChangePassword;
   private LocalDateTime createdAt;
   private LocalDateTime lastLoginAt;
   private int onboardingVersion;
@@ -37,6 +40,30 @@ public class CustomerAccount {
     this.passwordHash = passwordHash;
   }
 
+  public void updateProfile(String name, String email) {
+    if (name != null && !name.isBlank()) this.name = name.trim();
+    this.email = email == null || email.isBlank() ? null : email.trim().toLowerCase();
+  }
+
+  public void setActive(boolean active) {
+    this.active = active;
+  }
+
+  public void resetPassword(String passwordHash) {
+    this.passwordHash = passwordHash;
+    this.mustChangePassword = true;
+  }
+
+  public void changePassword(String passwordHash) {
+    this.passwordHash = passwordHash;
+    this.mustChangePassword = false;
+  }
+
+  public void resetOnboarding() {
+    this.onboardingVersion = 0;
+    this.onboardingCompletedAt = null;
+  }
+
   public void completeOnboarding(int version) {
     this.onboardingVersion = Math.max(this.onboardingVersion, version);
     this.onboardingCompletedAt = LocalDateTime.now();
@@ -45,7 +72,10 @@ public class CustomerAccount {
   public String getId() { return id; }
   public String getPhoneNormalized() { return phoneNormalized; }
   public String getName() { return name; }
+  public String getEmail() { return email; }
   public String getPasswordHash() { return passwordHash; }
+  public boolean isActive() { return active; }
+  public boolean isMustChangePassword() { return mustChangePassword; }
   public LocalDateTime getCreatedAt() { return createdAt; }
   public LocalDateTime getLastLoginAt() { return lastLoginAt; }
   public int getOnboardingVersion() { return onboardingVersion; }
