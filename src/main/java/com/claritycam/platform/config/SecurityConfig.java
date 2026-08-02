@@ -1,6 +1,7 @@
 package com.claritycam.platform.config;
 
-import com.claritycam.platform.auth.AdminUserRepository;
+import com.claritycam.platform.model.finance.Payment;
+import com.claritycam.platform.repository.auth.AdminUserRepository;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -89,11 +90,12 @@ public class SecurityConfig {
                 "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"))
             .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy",
                 "camera=(), microphone=(), geolocation=(), payment=(), usb=()"))
+            .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Opener-Policy", "same-origin"))
             .referrerPolicy(policy -> policy.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
         .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.GET, "/api/catalog/**", "/api/media/catalog/**", "/api/stores", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/otp/**", "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release", "/api/bookings/track", "/api/customer/account/**", "/api/customer/support").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/features", "/api/catalog/**", "/api/media/catalog/**", "/api/stores", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**", "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release", "/api/bookings/track", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/inventory/**").hasAnyRole("ADMIN", "MANAGER", "WAREHOUSE", "TECH")
@@ -116,7 +118,7 @@ public class SecurityConfig {
         .toList();
     configuration.setAllowedOrigins(origins);
     configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN", "X-Requested-With"));
+    configuration.setAllowedHeaders(List.of("Accept", "Content-Type", "X-XSRF-TOKEN", "X-Requested-With"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

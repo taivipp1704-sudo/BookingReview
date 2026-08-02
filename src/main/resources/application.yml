@@ -11,31 +11,50 @@ server:
         http-only: true
         secure: ${SESSION_COOKIE_SECURE:false}
         same-site: lax
+  tomcat:
+    max-swallow-size: 11MB
+    max-http-form-post-size: 11MB
 
 spring:
   application:
     name: claritycam-platform-api
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/claritycam_platform?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:5000}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:true}
+    user: ${FLYWAY_USERNAME:${DB_USERNAME}}
+    password: ${FLYWAY_PASSWORD:${DB_PASSWORD}}
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     open-in-view: false
     properties:
       hibernate:
         format_sql: ${JPA_FORMAT_SQL:false}
+    show-sql: false
   jackson:
     time-zone: Asia/Ho_Chi_Minh
 
 claritycam:
-  cors-origins: ${CORS_ORIGINS:http://127.0.0.1:5175,http://localhost:5175}
+  features:
+    booking-enabled: ${BOOKING_ENABLED:false}
+    early-access-registration-enabled: ${EARLY_ACCESS_REGISTRATION_ENABLED:true}
+  cors-origins: ${CORS_ORIGINS}
   seed-demo-data: ${SEED_DEMO_DATA:false}
   bootstrap-admin: ${BOOTSTRAP_ADMIN:false}
   admin:
-    email: ${CLARITYCAM_ADMIN_EMAIL:admin@claritycam.local}
-    password: ${CLARITYCAM_ADMIN_PASSWORD:change-me-now}
+    email: ${CLARITYCAM_ADMIN_EMAIL}
+    password: ${CLARITYCAM_ADMIN_PASSWORD}
   otp:
     expose-demo-code: ${OTP_EXPOSE_DEMO_CODE:false}
     expiry-minutes: ${OTP_EXPIRY_MINUTES:5}
@@ -52,7 +71,7 @@ claritycam:
       sandbox: ${ESMS_SANDBOX:false}
   identity-storage: ${IDENTITY_STORAGE:./private-data/identity}
   identity-storage-provider: ${IDENTITY_STORAGE_PROVIDER:local}
-  identity-encryption-key: ${IDENTITY_ENCRYPTION_KEY:dev-only-change-before-production}
+  identity-encryption-key: ${IDENTITY_ENCRYPTION_KEY}
   identity-retention-days: ${IDENTITY_RETENTION_DAYS:30}
   identity-cleanup-ms: ${IDENTITY_CLEANUP_MS:3600000}
   r2:

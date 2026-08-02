@@ -1,5 +1,18 @@
 target/
 private-data/
+public-data/
 .env
+.env.*
+!.env.example
 *.log
+*.pem
+*.key
+*.p12
+*.jks
+*.sql.gz
+*.dump
+*.bak
+backups/
+.idea/
+.vscode/
 

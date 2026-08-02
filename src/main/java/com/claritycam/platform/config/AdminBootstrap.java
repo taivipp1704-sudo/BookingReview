@@ -1,7 +1,7 @@
 package com.claritycam.platform.config;
 
-import com.claritycam.platform.auth.AdminUser;
-import com.claritycam.platform.auth.AdminUserRepository;
+import com.claritycam.platform.repository.auth.AdminUserRepository;
+import com.claritycam.platform.model.auth.AdminUser;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,9 +22,9 @@ public class AdminBootstrap {
       if (email == null || email.isBlank()) {
         throw new IllegalStateException("CLARITYCAM_ADMIN_EMAIL is required when BOOTSTRAP_ADMIN=true");
       }
-      if (password == null || password.length() < 12 || "change-me-now".equals(password)) {
+      if (!PasswordPolicy.isValid(password) || "change-me-now".equals(password)) {
         throw new IllegalStateException(
-            "CLARITYCAM_ADMIN_PASSWORD must contain at least 12 characters when BOOTSTRAP_ADMIN=true");
+            "CLARITYCAM_ADMIN_PASSWORD must be 12-128 characters with uppercase, lowercase, number and symbol");
       }
       String normalizedEmail = email.trim().toLowerCase();
       AdminUser existing = users.findByEmailIgnoreCase(normalizedEmail).orElse(null);

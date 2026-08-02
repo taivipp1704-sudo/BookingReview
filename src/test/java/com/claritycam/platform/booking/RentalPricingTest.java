@@ -1,5 +1,7 @@
 package com.claritycam.platform.booking;
 
+import com.claritycam.platform.model.booking.Booking;
+import com.claritycam.platform.service.booking.RentalPricing;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;

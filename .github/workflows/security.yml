@@ -1,0 +1,32 @@
+name: Security checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "40 2 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - run: mvn -B verify
+      - run: docker build --tag booking-review-api:security-scan .
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@0.32.0
+        with:
+          image-ref: booking-review-api:security-scan
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH

@@ -10,8 +10,17 @@ spring:
     properties:
       hibernate:
         format_sql: false
+  flyway:
+    enabled: false
 
 claritycam:
+  cors-origins: http://127.0.0.1:5175
   seed-demo-data: true
+  admin:
+    email: admin@claritycam.local
+    password: change-me-now
+  identity-encryption-key: test-only-encryption-key-32-bytes
+  features:
+    booking-enabled: true
   otp:
     expose-demo-code: true

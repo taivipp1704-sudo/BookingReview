@@ -1,5 +1,15 @@
 target
 private-data
+public-data
 *.log
+.git
+.github
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
 .idea
 .vscode

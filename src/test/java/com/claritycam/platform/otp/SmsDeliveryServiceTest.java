@@ -1,5 +1,6 @@
 package com.claritycam.platform.otp;
 
+import com.claritycam.platform.service.otp.SmsDeliveryService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
@@ -7,7 +8,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-import com.claritycam.platform.common.ApiException;
+import com.claritycam.platform.exception.ApiException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;

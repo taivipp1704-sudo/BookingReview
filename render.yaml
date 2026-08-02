@@ -14,6 +14,10 @@ services:
         sync: false
       - key: DB_PASSWORD
         sync: false
+      - key: FLYWAY_USERNAME
+        sync: false
+      - key: FLYWAY_PASSWORD
+        sync: false
       - key: CORS_ORIGINS
         sync: false
       - key: CLARITYCAM_ADMIN_PASSWORD
@@ -38,10 +42,18 @@ services:
         value: "false"
       - key: SESSION_COOKIE_SECURE
         value: "true"
+      - key: FORWARD_HEADERS_STRATEGY
+        value: "framework"
       - key: OTP_EXPOSE_DEMO_CODE
         value: "false"
       - key: SMS_PROVIDER
         value: "none"
+      - key: BOOKING_ENABLED
+        value: "false"
+      - key: EARLY_ACCESS_REGISTRATION_ENABLED
+        value: "true"
+      - key: JPA_DDL_AUTO
+        value: "validate"
       - key: ESMS_API_KEY
         sync: false
       - key: ESMS_SECRET_KEY

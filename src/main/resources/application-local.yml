@@ -1,5 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/claritycam_platform?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Ho_Chi_Minh
+    username: root
+    password:
+
 claritycam:
+  cors-origins: http://127.0.0.1:5175,http://localhost:5175
   seed-demo-data: true
+  admin:
+    email: admin@claritycam.local
+    password: change-me-now
+  identity-encryption-key: dev-only-change-before-production
   otp:
     expose-demo-code: true
 

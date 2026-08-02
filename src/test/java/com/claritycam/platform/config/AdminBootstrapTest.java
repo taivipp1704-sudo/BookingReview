@@ -1,12 +1,12 @@
 package com.claritycam.platform.config;
 
+import com.claritycam.platform.repository.auth.AdminUserRepository;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.claritycam.platform.auth.AdminUser;
-import com.claritycam.platform.auth.AdminUserRepository;
+import com.claritycam.platform.model.auth.AdminUser;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.CommandLineRunner;
@@ -30,11 +30,11 @@ class AdminBootstrapTest {
         users,
         encoder,
         " Admin@Example.com ",
-        "new-password-456");
+        "New-password#456");
     runner.run();
 
     assertTrue(existing.isActive());
-    assertTrue(encoder.matches("new-password-456", existing.getPasswordHash()));
+    assertTrue(encoder.matches("New-password#456", existing.getPasswordHash()));
     verify(users).save(existing);
   }
 }
