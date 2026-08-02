@@ -164,7 +164,10 @@ public class BookingController {
 
   @GetMapping("/api/catalog/{productId}/schedule")
   List<BookingService.ScheduleBlock> schedule(@PathVariable String productId,
-      @RequestParam LocalDateTime from, @RequestParam LocalDateTime to) {
+      @RequestParam LocalDateTime from, @RequestParam LocalDateTime to,
+      HttpServletRequest servletRequest) {
+    requireCustomerPhone(servletRequest);
+    rateLimit.check("schedule:ip:" + clientAddressResolver.resolve(servletRequest), 120, Duration.ofMinutes(1));
     return bookingService.schedule(productId, from, to);
   }
 

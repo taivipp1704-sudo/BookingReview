@@ -94,6 +94,8 @@ public class SecurityConfig {
             .referrerPolicy(policy -> policy.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
         .exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
         .authorizeHttpRequests(auth -> auth
+            .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+            .requestMatchers("/actuator/metrics", "/actuator/metrics/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.GET, "/api/features", "/api/catalog/**", "/api/media/catalog/**", "/api/stores", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**", "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release", "/api/bookings/track", "/api/customer/account/**", "/api/customer/support").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")

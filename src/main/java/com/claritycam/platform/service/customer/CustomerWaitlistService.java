@@ -43,6 +43,16 @@ public class CustomerWaitlistService {
     return new RegistrationResult(entry, true);
   }
 
+  @Transactional
+  public RegistrationResult recordRegisteredAccount(CustomerAccount account) {
+    CustomerWaitlistEntry existing = waitlist.findByPhoneNormalized(account.getPhoneNormalized()).orElse(null);
+    if (existing != null) return new RegistrationResult(existing, false);
+    CustomerWaitlistEntry entry = waitlist.save(new CustomerWaitlistEntry(
+        account.getId(), account.getPhoneNormalized(), account.getName(),
+        "WEB_ACCOUNT_PREVIEW", CONSENT_VERSION));
+    return new RegistrationResult(entry, true);
+  }
+
   @Transactional(readOnly = true)
   public List<CustomerWaitlistEntry> list() {
     return waitlist.findAllByOrderByCreatedAtDesc();

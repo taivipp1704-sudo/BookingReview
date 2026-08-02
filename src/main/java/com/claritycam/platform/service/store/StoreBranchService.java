@@ -25,10 +25,10 @@ public class StoreBranchService {
     branches.save(new StoreBranch(
         newId(),
         "STORE-001",
-        "Chi nhÃƒÆ’Ã‚Â¡nh trung tÃƒÆ’Ã‚Â¢m",
-        "Ãƒâ€žÃ‚ÂÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹a chÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° Ãƒâ€žÃ¢â‚¬Ëœang cÃƒÂ¡Ã‚ÂºÃ‚Â­p nhÃƒÂ¡Ã‚ÂºÃ‚Â­t",
+        "Chi nhánh trung tâm",
+        "Địa chỉ đang cập nhật",
         "",
-        "Admin cÃƒÂ¡Ã‚ÂºÃ‚Â­p nhÃƒÂ¡Ã‚ÂºÃ‚Â­t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹a chÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° vÃƒÆ’Ã‚Â  thÃƒÆ’Ã‚Â´ng tin liÃƒÆ’Ã‚Âªn hÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡ trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi vÃƒÂ¡Ã‚ÂºÃ‚Â­n hÃƒÆ’Ã‚Â nh chÃƒÆ’Ã‚Â­nh thÃƒÂ¡Ã‚Â»Ã‚Â©c.",
+        "Admin cập nhật địa chỉ và thông tin liên hệ trước khi vận hành chính thức.",
         true,
         10));
   }
@@ -44,11 +44,11 @@ public class StoreBranchService {
   public StoreBranch requireForBooking(String branchId) {
     if (branchId == null || branchId.isBlank()) {
       return publicBranches().stream().findFirst()
-          .orElseThrow(() -> ApiException.badRequest("HiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n chÃƒâ€ Ã‚Â°a cÃƒÆ’Ã‚Â³ chi nhÃƒÆ’Ã‚Â¡nh nhÃƒÂ¡Ã‚ÂºÃ‚Â­n mÃƒÆ’Ã‚Â¡y Ãƒâ€žÃ¢â‚¬Ëœang hoÃƒÂ¡Ã‚ÂºÃ‚Â¡t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢ng."));
+          .orElseThrow(() -> ApiException.badRequest("Hiện chưa có chi nhánh nhận máy đang hoạt động."));
     }
     return branches.findById(branchId)
         .filter(StoreBranch::isActive)
-        .orElseThrow(() -> ApiException.badRequest("Chi nhÃƒÆ’Ã‚Â¡nh Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ chÃƒÂ¡Ã‚Â»Ã‚Ân khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n hoÃƒÂ¡Ã‚ÂºÃ‚Â¡t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢ng."));
+        .orElseThrow(() -> ApiException.badRequest("Chi nhánh đã chọn không còn hoạt động."));
   }
 
   @Transactional
@@ -62,7 +62,7 @@ public class StoreBranchService {
   @Transactional
   public StoreBranch update(String id, StoreBranchController.Payload payload) {
     StoreBranch branch = branches.findById(id)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y chi nhÃƒÆ’Ã‚Â¡nh."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy chi nhánh."));
     branch.apply(payload.name(), payload.address(), payload.phone(), payload.note(),
         payload.active(), payload.sortOrder());
     return branches.save(branch);
@@ -71,7 +71,7 @@ public class StoreBranchService {
   @Transactional
   public StoreBranch archive(String id) {
     StoreBranch branch = branches.findById(id)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y chi nhÃƒÆ’Ã‚Â¡nh."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy chi nhánh."));
     branch.deactivate();
     return branches.save(branch);
   }

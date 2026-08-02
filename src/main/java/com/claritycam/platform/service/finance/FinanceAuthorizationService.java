@@ -20,6 +20,6 @@ public class FinanceAuthorizationService {
     boolean allowed = authentication != null && authentication.getAuthorities().stream()
         .map(authority -> authority.getAuthority().replaceFirst("^ROLE_", ""))
         .anyMatch(role -> CAPABILITIES.getOrDefault(role, Set.of()).contains(capability));
-    if (!allowed) throw ApiException.forbidden("TÃƒÆ’Ã‚Â i khoÃƒÂ¡Ã‚ÂºÃ‚Â£n khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ quyÃƒÂ¡Ã‚Â»Ã‚Ân " + capability + ".");
+    if (!allowed) throw ApiException.forbidden("Tài khoản không có quyền " + capability + ".");
   }
 }

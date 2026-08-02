@@ -54,7 +54,7 @@ public class BundleVersionService {
     try {
       return objectMapper.writeValueAsString(value);
     } catch (JsonProcessingException error) {
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ tÃƒÂ¡Ã‚ÂºÃ‚Â¡o snapshot combo.", error);
+      throw new IllegalStateException("Không thể tạo snapshot combo.", error);
     }
   }
 }

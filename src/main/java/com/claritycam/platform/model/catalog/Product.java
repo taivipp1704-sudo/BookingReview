@@ -169,6 +169,11 @@ public class Product {
 
   public void deactivate() { this.active = false; }
 
+  public void activateForPreview() {
+    this.active = true;
+    this.levelCode = "L1";
+  }
+
   public void migrateTrackingMode(String trackingMode) {
     this.trackingMode = trackingMode;
   }

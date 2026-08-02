@@ -58,7 +58,7 @@ public class AdminBundleController {
   @Transactional
   RentalBundle update(@PathVariable String id, @Valid @RequestBody BundlePayload payload, Authentication authentication) {
     validateProducts(payload.items());
-    RentalBundle bundle = bundles.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y combo."));
+    RentalBundle bundle = bundles.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy combo."));
     bundle.apply(payload.name(), payload.hourlyPrice(), payload.dailyPrice(), payload.multiDayPrice(),
         payload.multiDayDays(), payload.active(), payload.imageUrl(), payload.detailImageUrl(), payload.note(),
         lines(payload.items()));
@@ -73,7 +73,7 @@ public class AdminBundleController {
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   @Transactional
   RentalBundle archive(@PathVariable String id, Authentication authentication) {
-    RentalBundle bundle = bundles.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y combo."));
+    RentalBundle bundle = bundles.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy combo."));
     bundle.deactivate();
     bundle.publishNextVersion();
     RentalBundle saved = bundles.save(bundle);
@@ -83,11 +83,11 @@ public class AdminBundleController {
 
   @GetMapping("/{id}/versions")
   List<BundleVersion> versions(@PathVariable String id) {
-    if (!bundles.existsById(id)) throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y combo.");
+    if (!bundles.existsById(id)) throw ApiException.notFound("Không tìm thấy combo.");
     return versionService.history(id);
   }
 
-  private void validateProducts(List<BundleItemPayload> items) { for (BundleItemPayload item : items) if (!products.existsById(item.productId())) throw ApiException.badRequest("SÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i: " + item.productId()); }
+  private void validateProducts(List<BundleItemPayload> items) { for (BundleItemPayload item : items) if (!products.existsById(item.productId())) throw ApiException.badRequest("Sản phẩm không tồn tại: " + item.productId()); }
   private List<BundleLine> lines(List<BundleItemPayload> items) { return items.stream().map(item -> new BundleLine(item.productId(), item.quantity())).toList(); }
   private static int normalizedMultiDayDays(Integer value) { return value == null ? 3 : value; }
   public record BundlePayload(@NotBlank String name, @DecimalMin("0") BigDecimal hourlyPrice,

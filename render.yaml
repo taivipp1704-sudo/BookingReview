@@ -5,7 +5,7 @@ services:
     plan: free
     region: singapore
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/catalog/products
+    healthCheckPath: /actuator/health/readiness
     autoDeployTrigger: commit
     envVars:
       - key: DB_URL
@@ -52,6 +52,8 @@ services:
         value: "false"
       - key: EARLY_ACCESS_REGISTRATION_ENABLED
         value: "true"
+      - key: ALERT_WEBHOOK_URL
+        sync: false
       - key: JPA_DDL_AUTO
         value: "validate"
       - key: ESMS_API_KEY

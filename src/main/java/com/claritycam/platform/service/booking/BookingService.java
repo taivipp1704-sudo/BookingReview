@@ -110,7 +110,7 @@ public class BookingService {
     for (Map.Entry<String, Integer> entry : quantities.entrySet()) {
       Product product = products.findById(entry.getKey())
           .filter(Product::isActive)
-          .orElseThrow(() -> ApiException.badRequest("ThiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p: " + entry.getKey()));
+          .orElseThrow(() -> ApiException.badRequest("Thiết bị không còn được cung cấp: " + entry.getKey()));
       int quantity = entry.getValue();
       boolean available = isAvailable(product, quantity, request.pickupTime(), request.returnTime(),
           excludedBookingId, request.holdToken());
@@ -143,12 +143,12 @@ public class BookingService {
     RentalPricing.Charge bundleCharge = null;
     if (request.bundleId() != null && !request.bundleId().isBlank()) {
       RentalBundle bundle = bundles.findByIdWithItems(request.bundleId()).filter(RentalBundle::isActive)
-          .orElseThrow(() -> ApiException.badRequest("Combo khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p."));
+          .orElseThrow(() -> ApiException.badRequest("Combo không còn được cung cấp."));
       BigDecimal includedRetail = BigDecimal.ZERO;
       for (var bundleItem : bundle.getItems()) {
-        Product includedProduct = products.findById(bundleItem.getProductId()).orElseThrow(() -> ApiException.badRequest("Combo chÃƒÂ¡Ã‚Â»Ã‚Â©a sÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i."));
+        Product includedProduct = products.findById(bundleItem.getProductId()).orElseThrow(() -> ApiException.badRequest("Combo chứa sản phẩm không tồn tại."));
         int requested = quantities.getOrDefault(bundleItem.getProductId(), 0);
-        if (requested < bundleItem.getQuantity()) throw ApiException.badRequest("ChÃƒâ€ Ã‚Â°a chÃƒÂ¡Ã‚Â»Ã‚Ân Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ trong combo " + bundle.getName() + ".");
+        if (requested < bundleItem.getQuantity()) throw ApiException.badRequest("Chưa chọn đủ thiết bị trong combo " + bundle.getName() + ".");
         RentalPricing.Charge includedCharge = RentalPricing.calculateProduct(includedProduct.getHourlyPrice(),
             includedProduct.getHalfDayPrice(), includedProduct.getDailyPrice(), includedProduct.getTwoDayPrice(),
             includedProduct.getMultiDayPrice(), includedProduct.getExtraDayPrice(), includedProduct.getMultiDayDays(),
@@ -185,7 +185,7 @@ public class BookingService {
     String requestedToken = normalizeToken(request.holdToken());
     TemporaryHold existing = requestedToken == null ? null : temporaryHolds.get(requestedToken);
     if (requestedToken != null && (existing == null || !existing.ownerPhone().equals(normalizedOwner))) {
-      throw ApiException.badRequest("PhiÃƒÆ’Ã‚Âªn giÃƒÂ¡Ã‚Â»Ã‚Â¯ mÃƒÆ’Ã‚Â¡y Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ hÃƒÂ¡Ã‚ÂºÃ‚Â¿t hÃƒÂ¡Ã‚ÂºÃ‚Â¡n. Vui lÃƒÆ’Ã‚Â²ng bÃƒÂ¡Ã‚ÂºÃ‚Â¯t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â§u lÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+      throw ApiException.badRequest("Phiên giữ máy đã hết hạn. Vui lòng bắt đầu lại.");
     }
     if (existing == null && requestedToken == null) {
       var ownerHold = temporaryHolds.entrySet().stream()
@@ -243,7 +243,7 @@ public class BookingService {
   public synchronized Booking submit(SubmitRequest request, String sessionPhone, String remoteAddress) {
     String normalizedPhone = OtpService.normalizePhone(request.phone());
     if (!normalizedPhone.equals(OtpService.normalizePhone(sessionPhone))) {
-      throw ApiException.forbidden("TÃƒÆ’Ã‚Â i khoÃƒÂ¡Ã‚ÂºÃ‚Â£n Ãƒâ€žÃ¢â‚¬ËœÃƒâ€žÃ†â€™ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p khÃƒÆ’Ã‚Â´ng khÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºp vÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n thoÃƒÂ¡Ã‚ÂºÃ‚Â¡i Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â·t thuÃƒÆ’Ã‚Âª.");
+      throw ApiException.forbidden("Tài khoản đăng nhập không khớp với số điện thoại đặt thuê.");
     }
     if (request.earlyPickupTime() != null) {
       LocalDateTime earliestEarlyPickup =
@@ -251,7 +251,7 @@ public class BookingService {
       if (request.earlyPickupTime().isBefore(earliestEarlyPickup)
           || !request.earlyPickupTime().isBefore(request.pickupTime())) {
         throw ApiException.badRequest(
-            "ThÃƒÂ¡Ã‚Â»Ã‚Âi gian nhÃƒÂ¡Ã‚ÂºÃ‚Â­n sÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºm phÃƒÂ¡Ã‚ÂºÃ‚Â£i tÃƒÂ¡Ã‚Â»Ã‚Â« 21:00 ngÃƒÆ’Ã‚Â y trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc vÃƒÆ’Ã‚Â  trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc thÃƒÂ¡Ã‚Â»Ã‚Âi gian nhÃƒÂ¡Ã‚ÂºÃ‚Â­n mÃƒÆ’Ã‚Â¡y chÃƒÆ’Ã‚Â­nh thÃƒÂ¡Ã‚Â»Ã‚Â©c.");
+            "Thời gian nhận sớm phải từ 21:00 ngày trước và trước thời gian nhận máy chính thức.");
       }
     }
     purgeExpiredHolds();
@@ -261,12 +261,12 @@ public class BookingService {
     if (hold == null || !hold.ownerPhone().equals(normalizedPhone)
         || !hold.matches(request.pickupTime(), request.returnTime(), requestedItems, request.bundleId(),
             request.promotionCode(), request.rentalRate())) {
-      throw ApiException.badRequest("PhiÃƒÆ’Ã‚Âªn giÃƒÂ¡Ã‚Â»Ã‚Â¯ mÃƒÆ’Ã‚Â¡y khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡ hoÃƒÂ¡Ã‚ÂºÃ‚Â·c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ hÃƒÂ¡Ã‚ÂºÃ‚Â¿t hÃƒÂ¡Ã‚ÂºÃ‚Â¡n. Vui lÃƒÆ’Ã‚Â²ng bÃƒÂ¡Ã‚ÂºÃ‚Â¯t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â§u lÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+      throw ApiException.badRequest("Phiên giữ máy không hợp lệ hoặc đã hết hạn. Vui lòng bắt đầu lại.");
     }
     Quote quote = quote(new QuoteRequest(request.pickupTime(), request.returnTime(), request.items(),
         request.bundleId(), holdToken, request.promotionCode(), request.rentalRate()));
     if (!quote.available()) {
-      throw ApiException.badRequest("MÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢t hoÃƒÂ¡Ã‚ÂºÃ‚Â·c nhiÃƒÂ¡Ã‚Â»Ã‚Âu thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ hiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n sÃƒÂ¡Ã‚ÂºÃ‚Âµn sÃƒÆ’Ã‚Â ng: " + String.join(", ", quote.unavailableProducts()));
+      throw ApiException.badRequest("Một hoặc nhiều thiết bị hiện không còn sẵn sàng: " + String.join(", ", quote.unavailableProducts()));
     }
     rateLimit.check("booking:" + normalizedPhone, 5, Duration.ofHours(1));
     rateLimit.check("booking:ip:" + remoteAddress, 20, Duration.ofHours(1));
@@ -316,7 +316,7 @@ public class BookingService {
   }
 
   public IdentityDocumentService.StoredImage identityDocument(String bookingId, String side) {
-    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     return identityDocument(booking, side);
   }
 
@@ -329,17 +329,17 @@ public class BookingService {
     String reference = switch (side.toLowerCase()) {
       case "front" -> booking.getIdentityFrontReference();
       case "back" -> booking.getIdentityBackReference();
-      default -> throw ApiException.badRequest("MÃƒÂ¡Ã‚ÂºÃ‚Â·t CCCD khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+      default -> throw ApiException.badRequest("Mặt CCCD không hợp lệ.");
     };
     return identityDocuments.read(reference);
   }
 
   @Transactional
   public Booking transition(String id, BookingState nextState, String reason, String actor) {
-    Booking booking = bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+    Booking booking = bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     requireTransition(booking.getState(), nextState);
     if (requiresReason(nextState) && (reason == null || reason.isBlank())) {
-      throw ApiException.badRequest("Vui lÃƒÆ’Ã‚Â²ng ghi lÃƒÆ’Ã‚Â½ do cho thao tÃƒÆ’Ã‚Â¡c nÃƒÆ’Ã‚Â y.");
+      throw ApiException.badRequest("Vui lòng ghi lý do cho thao tác này.");
     }
     if (nextState == BookingState.TEMP_HOLD || nextState == BookingState.CONDITIONAL
         || nextState == BookingState.CONFIRMED || nextState == BookingState.READY_FOR_PICKUP) {
@@ -347,7 +347,7 @@ public class BookingService {
           .map(item -> new ItemRequest(item.getProductId(), item.getQuantity()))
           .toList(), booking.getBundleId(), null, booking.getPromotionCode(), null), booking.getId());
       if (!quote.available()) {
-        throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ giÃƒÂ¡Ã‚Â»Ã‚Â¯/duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â¡n vÃƒÆ’Ã‚Â¬ kho khÃƒÆ’Ã‚Â´ng sÃƒÂ¡Ã‚ÂºÃ‚Âµn sÃƒÆ’Ã‚Â ng: " + String.join(", ", quote.unavailableProducts()));
+        throw ApiException.badRequest("Không thể giữ/duyệt đơn vì kho không sẵn sàng: " + String.join(", ", quote.unavailableProducts()));
       }
     }
     BookingState previousState = booking.getState();
@@ -375,16 +375,16 @@ public class BookingService {
   @Transactional
   public Booking track(String bookingId, String phone) {
     String normalizedPhone = OtpService.normalizePhone(phone);
-    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     if (!booking.getPhoneNormalized().equals(normalizedPhone)) {
-      throw ApiException.forbidden("ThÃƒÆ’Ã‚Â´ng tin tra cÃƒÂ¡Ã‚Â»Ã‚Â©u khÃƒÆ’Ã‚Â´ng khÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºp.");
+      throw ApiException.forbidden("Thông tin tra cứu không khớp.");
     }
     return booking;
   }
 
   public List<ScheduleBlock> schedule(String productId, LocalDateTime from, LocalDateTime to) {
     products.findById(productId).filter(Product::isActive)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy thiết bị."));
     List<ScheduleBlock> result = new ArrayList<>(overlapping(from, to).stream().map(booking -> {
       int quantity = booking.getItems().stream().filter(item -> productId.equals(item.getProductId()))
           .mapToInt(BookingLine::getQuantity).sum();
@@ -402,29 +402,29 @@ public class BookingService {
 
   @Transactional
   public Booking reviewEarlyPickup(String id, boolean approved, BigDecimal fee, String reason, String actor) {
-    Booking booking = bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
-    if (!booking.isEarlyPickupRequested()) throw ApiException.badRequest("Ãƒâ€žÃ‚ÂÃƒâ€ Ã‚Â¡n khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u nhÃƒÂ¡Ã‚ÂºÃ‚Â­n mÃƒÆ’Ã‚Â¡y sÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºm.");
+    Booking booking = bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    if (!booking.isEarlyPickupRequested()) throw ApiException.badRequest("Đơn không có yêu cầu nhận máy sớm.");
     booking.reviewEarlyPickup(approved, fee, reason);
     Booking saved = bookings.save(booking);
-    String note = (reason == null ? "" : reason.trim()) + (approved ? " | PhÃƒÆ’Ã‚Â­: " + booking.getEarlyPickupFee() : "");
+    String note = (reason == null ? "" : reason.trim()) + (approved ? " | Phí: " + booking.getEarlyPickupFee() : "");
     audit.record(actor, approved ? "EARLY_PICKUP_APPROVED" : "EARLY_PICKUP_REJECTED", "BOOKING", id, note);
     return saved;
   }
 
   public BookingOperationsService.OperationsSnapshot operations(String id) {
-    if (!bookings.existsById(id)) throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking.");
+    if (!bookings.existsById(id)) throw ApiException.notFound("Không tìm thấy booking.");
     return operations.snapshot(id);
   }
 
   @Transactional
   public BookingOperationsService.OperationsSnapshot autoAllocate(String id, String actor) {
     Booking booking = bookings.findByIdWithItemsForUpdate(id)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     if (!List.of(BookingState.CONFIRMED, BookingState.READY_FOR_PICKUP).contains(booking.getState())) {
-      throw ApiException.badRequest("ChÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ cho Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â¡n Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ xÃƒÆ’Ã‚Â¡c nhÃƒÂ¡Ã‚ÂºÃ‚Â­n hoÃƒÂ¡Ã‚ÂºÃ‚Â·c sÃƒÂ¡Ã‚ÂºÃ‚Âµn sÃƒÆ’Ã‚Â ng bÃƒÆ’Ã‚Â n giao.");
+      throw ApiException.badRequest("Chỉ phân bổ thiết bị cho đơn đã xác nhận hoặc sẵn sàng bàn giao.");
     }
     operations.autoAllocate(booking, actor);
-    audit.record(actor, "BOOKING_AUTO_ALLOCATED", "BOOKING", id, "PhÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ primary theo tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n khÃƒÂ¡Ã‚ÂºÃ‚Â£ dÃƒÂ¡Ã‚Â»Ã‚Â¥ng");
+    audit.record(actor, "BOOKING_AUTO_ALLOCATED", "BOOKING", id, "Phân bổ primary theo tồn khả dụng");
     return operations.snapshot(id);
   }
 
@@ -461,7 +461,7 @@ public class BookingService {
 
   private static void validatePeriod(LocalDateTime pickupTime, LocalDateTime returnTime) {
     if (pickupTime == null || returnTime == null || !returnTime.isAfter(pickupTime)) {
-      throw ApiException.badRequest("ThÃƒÂ¡Ã‚Â»Ã‚Âi gian trÃƒÂ¡Ã‚ÂºÃ‚Â£ mÃƒÆ’Ã‚Â¡y phÃƒÂ¡Ã‚ÂºÃ‚Â£i sau thÃƒÂ¡Ã‚Â»Ã‚Âi gian nhÃƒÂ¡Ã‚ÂºÃ‚Â­n mÃƒÆ’Ã‚Â¡y.");
+      throw ApiException.badRequest("Thời gian trả máy phải sau thời gian nhận máy.");
     }
   }
 
@@ -472,12 +472,12 @@ public class BookingService {
 
   private static Map<String, Integer> normalizeItems(List<ItemRequest> items) {
     if (items == null || items.isEmpty()) {
-      throw ApiException.badRequest("BÃƒÂ¡Ã‚ÂºÃ‚Â¡n chÃƒâ€ Ã‚Â°a chÃƒÂ¡Ã‚Â»Ã‚Ân thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹.");
+      throw ApiException.badRequest("Bạn chưa chọn thiết bị.");
     }
     Map<String, Integer> quantities = new LinkedHashMap<>();
     for (ItemRequest item : items) {
       if (item.productId() == null || item.productId().isBlank() || item.quantity() < 1 || item.quantity() > 10) {
-        throw ApiException.badRequest("ThiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ hoÃƒÂ¡Ã‚ÂºÃ‚Â·c sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ lÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£ng khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+        throw ApiException.badRequest("Thiết bị hoặc số lượng không hợp lệ.");
       }
       quantities.merge(item.productId(), item.quantity(), Integer::sum);
     }
@@ -490,7 +490,7 @@ public class BookingService {
   }
 
   public IdentityDocumentService.StoredImage paymentProof(String bookingId) {
-    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     return identityDocuments.read(booking.getPaymentProofReference());
   }
 
@@ -502,9 +502,9 @@ public class BookingService {
 
   private Booking requireCustomerBooking(String bookingId, String phoneNormalized) {
     Booking booking = bookings.findById(bookingId)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     if (phoneNormalized == null || !phoneNormalized.equals(booking.getPhoneNormalized())) {
-      throw ApiException.forbidden("BÃƒÂ¡Ã‚ÂºÃ‚Â¡n khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ quyÃƒÂ¡Ã‚Â»Ã‚Ân xem tÃƒÆ’Ã‚Â i liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u cÃƒÂ¡Ã‚Â»Ã‚Â§a booking nÃƒÆ’Ã‚Â y.");
+      throw ApiException.forbidden("Bạn không có quyền xem tài liệu của booking này.");
     }
     return booking;
   }
@@ -525,7 +525,7 @@ public class BookingService {
     if (rentalRate == null || rentalRate.isBlank()) return null;
     String normalized = rentalRate.trim().toUpperCase();
     if (!Set.of("HOURLY", "HALF_DAY", "DAILY", "TWO_DAY", "MULTI_DAY").contains(normalized)) {
-      throw ApiException.badRequest("GÃƒÆ’Ã‚Â³i giÃƒÆ’Ã‚Â¡ thuÃƒÆ’Ã‚Âª khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+      throw ApiException.badRequest("Gói giá thuê không hợp lệ.");
     }
     return normalized;
   }
@@ -556,7 +556,7 @@ public class BookingService {
       case COMPLETED, REJECTED -> false;
     };
     if (!allowed) {
-      throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ chuyÃƒÂ¡Ã‚Â»Ã†â€™n trÃƒÂ¡Ã‚ÂºÃ‚Â¡ng thÃƒÆ’Ã‚Â¡i tÃƒÂ¡Ã‚Â»Ã‚Â« " + current + " sang " + next + ".");
+      throw ApiException.badRequest("Không thể chuyển trạng thái từ " + current + " sang " + next + ".");
     }
   }
 

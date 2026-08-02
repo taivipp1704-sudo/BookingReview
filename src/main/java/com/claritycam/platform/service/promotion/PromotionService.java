@@ -26,7 +26,7 @@ public class PromotionService {
     if (promotionCode == null || promotionCode.isBlank()) return Application.none();
     Promotion promotion = promotions.findByCodeIgnoreCase(promotionCode.trim())
         .filter(Promotion::isActive)
-        .orElseThrow(() -> ApiException.badRequest("MÃƒÆ’Ã‚Â£ giÃƒÂ¡Ã‚ÂºÃ‚Â£m giÃƒÆ’Ã‚Â¡ khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i hoÃƒÂ¡Ã‚ÂºÃ‚Â·c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ ngÃƒÂ¡Ã‚Â»Ã‚Â«ng ÃƒÆ’Ã‚Â¡p dÃƒÂ¡Ã‚Â»Ã‚Â¥ng."));
+        .orElseThrow(() -> ApiException.badRequest("Mã giảm giá không tồn tại hoặc đã ngừng áp dụng."));
 
     long totalMinutes = Math.max(1, Duration.between(pickupTime, returnTime).toMinutes());
     List<DailyDiscount> breakdown = new ArrayList<>();
@@ -58,7 +58,7 @@ public class PromotionService {
     }
 
     if (!anyEligible) {
-      throw ApiException.badRequest("MÃƒÆ’Ã‚Â£ " + promotion.getCode() + " khÃƒÆ’Ã‚Â´ng ÃƒÆ’Ã‚Â¡p dÃƒÂ¡Ã‚Â»Ã‚Â¥ng cho ngÃƒÆ’Ã‚Â y thuÃƒÆ’Ã‚Âª Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ chÃƒÂ¡Ã‚Â»Ã‚Ân.");
+      throw ApiException.badRequest("Mã " + promotion.getCode() + " không áp dụng cho ngày thuê đã chọn.");
     }
     return new Application(promotion.getCode(), promotion.getName(), promotion.getDiscountPercent(),
         discount.min(subtotal), breakdown);

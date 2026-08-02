@@ -12,6 +12,7 @@ public class CustomerAccount {
   @Id private String id;
   @Column(unique = true, nullable = false) private String phoneNormalized;
   @Column(nullable = false) private String name;
+  @Column(length = 100) private String passwordHash;
   private LocalDateTime createdAt;
   private LocalDateTime lastLoginAt;
   private int onboardingVersion;
@@ -32,6 +33,10 @@ public class CustomerAccount {
     this.lastLoginAt = LocalDateTime.now();
   }
 
+  public void setPasswordHash(String passwordHash) {
+    this.passwordHash = passwordHash;
+  }
+
   public void completeOnboarding(int version) {
     this.onboardingVersion = Math.max(this.onboardingVersion, version);
     this.onboardingCompletedAt = LocalDateTime.now();
@@ -40,6 +45,7 @@ public class CustomerAccount {
   public String getId() { return id; }
   public String getPhoneNormalized() { return phoneNormalized; }
   public String getName() { return name; }
+  public String getPasswordHash() { return passwordHash; }
   public LocalDateTime getCreatedAt() { return createdAt; }
   public LocalDateTime getLastLoginAt() { return lastLoginAt; }
   public int getOnboardingVersion() { return onboardingVersion; }

@@ -4,6 +4,7 @@ import com.claritycam.platform.model.customer.CustomerAccount;
 import com.claritycam.platform.model.finance.Payment;
 import com.claritycam.platform.service.booking.BookingService;
 import com.claritycam.platform.service.customer.CustomerAccountService;
+import com.claritycam.platform.service.customer.CustomerWaitlistService;
 import com.claritycam.platform.service.customer.IdentityDocumentService;
 import com.claritycam.platform.service.audit.AuditService;
 import com.claritycam.platform.model.booking.Booking;
@@ -13,11 +14,11 @@ import com.claritycam.platform.service.common.RateLimitService;
 import com.claritycam.platform.service.common.ClientAddressResolver;
 import com.claritycam.platform.service.common.ReleaseFeatureService;
 import com.claritycam.platform.service.otp.OtpService;
-import com.claritycam.platform.model.otp.OtpPurpose;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,8 +46,8 @@ public class CustomerAccountController {
   private final AuditService auditService;
   private final RateLimitService rateLimit;
   private final ClientAddressResolver clientAddressResolver;
-  private final OtpService otpService;
   private final ReleaseFeatureService releaseFeatures;
+  private final CustomerWaitlistService waitlist;
   public CustomerAccountController(
       CustomerAccountService service,
       IdentityDocumentService identityDocuments,
@@ -54,16 +55,16 @@ public class CustomerAccountController {
       AuditService auditService,
       RateLimitService rateLimit,
       ClientAddressResolver clientAddressResolver,
-      OtpService otpService,
-      ReleaseFeatureService releaseFeatures) {
+      ReleaseFeatureService releaseFeatures,
+      CustomerWaitlistService waitlist) {
     this.service = service;
     this.identityDocuments = identityDocuments;
     this.bookingService = bookingService;
     this.auditService = auditService;
     this.rateLimit = rateLimit;
     this.clientAddressResolver = clientAddressResolver;
-    this.otpService = otpService;
     this.releaseFeatures = releaseFeatures;
+    this.waitlist = waitlist;
   }
 
   @PostMapping(value = "/identity-documents", consumes = "multipart/form-data")
@@ -92,8 +93,7 @@ public class CustomerAccountController {
     String phone = OtpService.normalizePhone(request.phone());
     rateLimit.check("customer-login:phone:" + phone, 8, Duration.ofMinutes(15));
     rateLimit.check("customer-login:ip:" + clientAddressResolver.resolve(servletRequest), 20, Duration.ofMinutes(15));
-    otpService.consume(request.verificationToken(), phone, OtpPurpose.ACCOUNT);
-    CustomerAccount account = service.login(request.phone(), request.name());
+    CustomerAccount account = service.login(request.phone(), request.password());
     establishSession(account, servletRequest);
     return AccountResponse.from(account);
   }
@@ -104,8 +104,9 @@ public class CustomerAccountController {
     String phone = OtpService.normalizePhone(request.phone());
     rateLimit.check("customer-register:phone:" + phone, 5, Duration.ofHours(1));
     rateLimit.check("customer-register:ip:" + clientAddressResolver.resolve(servletRequest), 10, Duration.ofHours(1));
-    otpService.consume(request.verificationToken(), phone, OtpPurpose.ACCOUNT);
-    CustomerAccount account = service.register(request.phone(), request.name());
+    releaseFeatures.requireEarlyAccessRegistrationEnabled();
+    CustomerAccount account = service.register(request.phone(), request.name(), request.password());
+    waitlist.recordRegisteredAccount(account);
     establishSession(account, servletRequest);
     return AccountResponse.from(account);
   }
@@ -173,12 +174,12 @@ public class CustomerAccountController {
 
   public record LoginRequest(
       @NotBlank @Size(max = 20) String phone,
-      @Size(max = 180) String name,
-      @NotBlank @Size(max = 128) String verificationToken) {}
+      @NotBlank @Size(min = 8, max = 72) String password) {}
   public record RegisterRequest(
       @NotBlank @Size(max = 20) String phone,
       @NotBlank @Size(max = 180) String name,
-      @NotBlank @Size(max = 128) String verificationToken) {}
+      @NotBlank @Size(min = 8, max = 72) String password,
+      @AssertTrue boolean consentAccepted) {}
   public record IdentityDocumentResponse(String uploadToken, LocalDateTime expiresAt) {}
   public record AccountResponse(String id, String name, String phone, int onboardingVersion,
                                 LocalDateTime onboardingCompletedAt) {

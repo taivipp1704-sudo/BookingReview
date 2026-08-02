@@ -54,14 +54,14 @@ public class CustomerSupportController {
     String phone=phone(request);
     rateLimit.check("support:phone:" + phone, 8, Duration.ofHours(1));
     rateLimit.check("support:ip:" + clientAddressResolver.resolve(request), 20, Duration.ofHours(1));
-    Booking booking=bookings.findById(input.bookingId().trim()).orElseThrow(()->ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â¡n thuÃƒÆ’Ã‚Âª."));
-    if(!phone.equals(booking.getPhoneNormalized())) throw ApiException.forbidden("BÃƒÂ¡Ã‚ÂºÃ‚Â¡n khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ quyÃƒÂ¡Ã‚Â»Ã‚Ân gÃƒÂ¡Ã‚Â»Ã‚Â­i yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u cho Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â¡n nÃƒÆ’Ã‚Â y.");
+    Booking booking=bookings.findById(input.bookingId().trim()).orElseThrow(()->ApiException.notFound("Không tìm thấy đơn thuê."));
+    if(!phone.equals(booking.getPhoneNormalized())) throw ApiException.forbidden("Bạn không có quyền gửi yêu cầu cho đơn này.");
     return requests.save(new SupportRequest("REQ-"+UUID.randomUUID().toString().replace("-","").substring(0,10).toUpperCase(),phone,input.bookingId().trim(),input.type(),input.message().trim()));
   }
 
   @GetMapping("/api/admin/support-requests") List<SupportRequest> all(){return requests.findAllByOrderByCreatedAtDesc();}
   @PatchMapping("/api/admin/support-requests/{id}") SupportRequest review(@PathVariable String id,@Valid @RequestBody ReviewRequest input){
-    SupportRequest support=requests.findById(id).orElseThrow(()->ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u hÃƒÂ¡Ã‚Â»Ã¢â‚¬â€ trÃƒÂ¡Ã‚Â»Ã‚Â£.")); support.review(input.status(),input.note()); return requests.save(support);
+    SupportRequest support=requests.findById(id).orElseThrow(()->ApiException.notFound("Không tìm thấy yêu cầu hỗ trợ.")); support.review(input.status(),input.note()); return requests.save(support);
   }
 
   private String phone(HttpServletRequest request){String value=request.getSession(false)==null?null:(String)request.getSession(false).getAttribute(CustomerAccountService.SESSION_PHONE);return accounts.require(value).getPhoneNormalized();}

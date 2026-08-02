@@ -51,8 +51,8 @@ public class IdentityDocumentService {
 
   @Transactional
   public UploadReceipt storePair(MultipartFile front, MultipartFile back, String ownerPhone) {
-    byte[] normalizedFront = normalizeImage(front, "mÃƒÂ¡Ã‚ÂºÃ‚Â·t trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc");
-    byte[] normalizedBack = normalizeImage(back, "mÃƒÂ¡Ã‚ÂºÃ‚Â·t sau");
+    byte[] normalizedFront = normalizeImage(front, "mặt trước");
+    byte[] normalizedBack = normalizeImage(back, "mặt sau");
     String frontKey = UUID.randomUUID() + ".bin";
     String backKey = UUID.randomUUID() + ".bin";
     try {
@@ -66,17 +66,17 @@ public class IdentityDocumentService {
       deleteQuietly(frontKey);
       deleteQuietly(backKey);
       if (error instanceof ApiException apiException) throw apiException;
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ lÃƒâ€ Ã‚Â°u tÃƒÆ’Ã‚Â i liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c.", error);
+      throw new IllegalStateException("Không thể lưu tài liệu xác thực.", error);
     }
   }
 
   @Transactional
   public ClaimedDocuments claim(String uploadToken, String ownerPhone) {
     IdentityUpload upload = uploads.findById(uploadToken)
-        .orElseThrow(() -> ApiException.badRequest("PhiÃƒÆ’Ã‚Âªn tÃƒÂ¡Ã‚ÂºÃ‚Â£i CCCD khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i hoÃƒÂ¡Ã‚ÂºÃ‚Â·c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ hÃƒÂ¡Ã‚ÂºÃ‚Â¿t hÃƒÂ¡Ã‚ÂºÃ‚Â¡n."));
+        .orElseThrow(() -> ApiException.badRequest("Phiên tải CCCD không tồn tại hoặc đã hết hạn."));
     LocalDateTime now = LocalDateTime.now();
     if (!upload.isUsableBy(fingerprint(ownerPhone), now)) {
-      throw ApiException.forbidden("ÃƒÂ¡Ã‚ÂºÃ‚Â¢nh CCCD khÃƒÆ’Ã‚Â´ng thuÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢c phiÃƒÆ’Ã‚Âªn Ãƒâ€žÃ¢â‚¬ËœÃƒâ€žÃ†â€™ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p nÃƒÆ’Ã‚Â y hoÃƒÂ¡Ã‚ÂºÃ‚Â·c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c sÃƒÂ¡Ã‚Â»Ã‚Â­ dÃƒÂ¡Ã‚Â»Ã‚Â¥ng.");
+      throw ApiException.forbidden("Ảnh CCCD không thuộc phiên đăng nhập này hoặc đã được sử dụng.");
     }
     upload.consume(now);
     uploads.save(upload);
@@ -85,11 +85,11 @@ public class IdentityDocumentService {
 
   public StoredImage read(String storageKey) {
     if (storageKey == null || !storageKey.matches("[0-9a-fA-F-]{36}\\.bin")) {
-      throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y ÃƒÂ¡Ã‚ÂºÃ‚Â£nh xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c.");
+      throw ApiException.notFound("Không tìm thấy ảnh xác thực.");
     }
     try {
       byte[] payload = objectStorage.get(storageKey);
-      if (payload.length < 13) throw new IllegalStateException("TÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡p xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+      if (payload.length < 13) throw new IllegalStateException("Tệp xác thực không hợp lệ.");
       byte[] iv = java.util.Arrays.copyOfRange(payload, 0, 12);
       byte[] ciphertext = java.util.Arrays.copyOfRange(payload, 12, payload.length);
       Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -99,7 +99,7 @@ public class IdentityDocumentService {
     } catch (ApiException error) {
       throw error;
     } catch (Exception error) {
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Âc ÃƒÂ¡Ã‚ÂºÃ‚Â£nh xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c.", error);
+      throw new IllegalStateException("Không thể đọc ảnh xác thực.", error);
     }
   }
 
@@ -120,25 +120,25 @@ public class IdentityDocumentService {
   }
 
   private byte[] normalizeImage(MultipartFile file, String label) {
-    if (file == null || file.isEmpty()) throw ApiException.badRequest("Vui lÃƒÆ’Ã‚Â²ng tÃƒÂ¡Ã‚ÂºÃ‚Â£i Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ ÃƒÂ¡Ã‚ÂºÃ‚Â£nh CCCD.");
-    if (file.getSize() > MAX_BYTES) throw ApiException.badRequest("ÃƒÂ¡Ã‚ÂºÃ‚Â¢nh CCCD " + label + " khÃƒÆ’Ã‚Â´ng Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c vÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£t quÃƒÆ’Ã‚Â¡ 5 MB.");
+    if (file == null || file.isEmpty()) throw ApiException.badRequest("Vui lòng tải đủ ảnh CCCD.");
+    if (file.getSize() > MAX_BYTES) throw ApiException.badRequest("áº¢nh CCCD " + label + " không được vượt quá 5 MB.");
     try {
       byte[] source = file.getBytes();
       BufferedImage decoded;
       try (ImageInputStream imageInput = ImageIO.createImageInputStream(new ByteArrayInputStream(source))) {
         var readers = ImageIO.getImageReaders(imageInput);
-        if (!readers.hasNext()) throw ApiException.badRequest("TÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡p " + label + " khÃƒÆ’Ã‚Â´ng phÃƒÂ¡Ã‚ÂºÃ‚Â£i ÃƒÂ¡Ã‚ÂºÃ‚Â£nh JPG hoÃƒÂ¡Ã‚ÂºÃ‚Â·c PNG hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+        if (!readers.hasNext()) throw ApiException.badRequest("Tá»‡p " + label + " không phải ảnh JPG hoặc PNG hợp lệ.");
         ImageReader reader = readers.next();
         try {
           reader.setInput(imageInput, true, true);
           String format = reader.getFormatName().toUpperCase();
           if (!format.equals("JPEG") && !format.equals("JPG") && !format.equals("PNG")) {
-            throw ApiException.badRequest("ÃƒÂ¡Ã‚ÂºÃ‚Â¢nh CCCD chÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° hÃƒÂ¡Ã‚Â»Ã¢â‚¬â€ trÃƒÂ¡Ã‚Â»Ã‚Â£ JPG hoÃƒÂ¡Ã‚ÂºÃ‚Â·c PNG.");
+            throw ApiException.badRequest("Ảnh CCCD chỉ hỗ trợ JPG hoặc PNG.");
           }
           int width = reader.getWidth(0);
           int height = reader.getHeight(0);
           if (width < 200 || height < 120 || (long) width * height > MAX_PIXELS) {
-            throw ApiException.badRequest("KÃƒÆ’Ã‚Â­ch thÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc ÃƒÂ¡Ã‚ÂºÃ‚Â£nh CCCD " + label + " khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+            throw ApiException.badRequest("Kích thước ảnh CCCD " + label + " không hợp lệ.");
           }
           decoded = reader.read(0);
         } finally {
@@ -155,7 +155,7 @@ public class IdentityDocumentService {
     } catch (ApiException error) {
       throw error;
     } catch (IOException error) {
-      throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Âc ÃƒÂ¡Ã‚ÂºÃ‚Â£nh CCCD " + label + ".");
+      throw ApiException.badRequest("Không thể đọc ảnh CCCD " + label + ".");
     }
   }
 
@@ -172,7 +172,7 @@ public class IdentityDocumentService {
       payload.write(ciphertext);
       objectStorage.put(storageKey, payload.toByteArray());
     } catch (Exception error) {
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ mÃƒÆ’Ã‚Â£ hÃƒÆ’Ã‚Â³a ÃƒÂ¡Ã‚ÂºÃ‚Â£nh xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c.", error);
+      throw new IllegalStateException("Không thể mã hóa ảnh xác thực.", error);
     }
   }
 
@@ -183,7 +183,7 @@ public class IdentityDocumentService {
 
   @Transactional
   public UploadReceipt storeSingle(MultipartFile file, String ownerPhone) {
-    byte[] normalized = normalizeImage(file, "bÃƒÂ¡Ã‚ÂºÃ‚Â±ng chÃƒÂ¡Ã‚Â»Ã‚Â©ng thanh toÃƒÆ’Ã‚Â¡n");
+    byte[] normalized = normalizeImage(file, "bằng chứng thanh toán");
     String storageKey = UUID.randomUUID() + ".bin";
     try {
       writeEncrypted(storageKey, normalized);
@@ -194,7 +194,7 @@ public class IdentityDocumentService {
     } catch (RuntimeException error) {
       deleteQuietly(storageKey);
       if (error instanceof ApiException apiException) throw apiException;
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ lÃƒâ€ Ã‚Â°u bÃƒÂ¡Ã‚ÂºÃ‚Â±ng chÃƒÂ¡Ã‚Â»Ã‚Â©ng thanh toÃƒÆ’Ã‚Â¡n.", error);
+      throw new IllegalStateException("Không thể lưu bằng chứng thanh toán.", error);
     }
   }
 

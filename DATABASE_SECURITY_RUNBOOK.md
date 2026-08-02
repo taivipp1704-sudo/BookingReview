@@ -4,7 +4,8 @@
 
 - `BOOKING_ENABLED=false` keeps quote, hold, identity upload, payment proof and booking creation closed at the API layer.
 - Early access stores only customer name, normalized phone number, consent version and waitlist slot.
-- The approved Excel import creates products as inactive and financial policies as `DRAFT`.
+- The approved Excel import exposes products in read-only preview mode while financial policies remain `DRAFT`.
+- Catalog and anonymous booking-calendar endpoints require an authenticated customer session.
 
 ## Accounts and secrets
 
@@ -43,4 +44,5 @@ Keep daily backups for 14 days and weekly backups for 8 weeks. Run a restore dri
 - Database access is never exposed to React or browser code.
 - Production demo data and demo OTP are disabled.
 - Review duplicate registrations, rate-limit events and unexpected `5xx` responses daily during early access.
+- Monitor `/actuator/health/readiness`; configure `ALERT_WEBHOOK_URL` to receive database, server-error and rate-limit alerts outside Render logs.
 - Do not collect CCCD or payment images until booking is enabled and retention/storage controls are verified.

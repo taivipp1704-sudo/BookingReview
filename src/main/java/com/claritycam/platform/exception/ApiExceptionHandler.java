@@ -1,5 +1,6 @@
 package com.claritycam.platform.exception;
 
+import com.claritycam.platform.service.common.OperationalAlertService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Map;
@@ -12,6 +13,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+  private final OperationalAlertService alerts;
+
+  public ApiExceptionHandler(OperationalAlertService alerts) {
+    this.alerts = alerts;
+  }
+
   @ExceptionHandler(ApiException.class)
   ResponseEntity<Map<String, Object>> handleApi(ApiException exception, HttpServletRequest request) {
     return response(exception.getStatus(), exception.getMessage(), request);
@@ -29,6 +36,13 @@ public class ApiExceptionHandler {
   @ExceptionHandler(AccessDeniedException.class)
   ResponseEntity<Map<String, Object>> handleForbidden(AccessDeniedException exception, HttpServletRequest request) {
     return response(HttpStatus.FORBIDDEN, "Bạn không có quyền thực hiện thao tác này.", request);
+  }
+
+  @ExceptionHandler(Exception.class)
+  ResponseEntity<Map<String, Object>> handleUnexpected(Exception exception, HttpServletRequest request) {
+    alerts.alert("UNHANDLED_API_ERROR", exception.getClass().getSimpleName() + " at " + request.getRequestURI());
+    return response(HttpStatus.INTERNAL_SERVER_ERROR,
+        "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.", request);
   }
 
   private ResponseEntity<Map<String, Object>> response(HttpStatus status, String message, HttpServletRequest request) {

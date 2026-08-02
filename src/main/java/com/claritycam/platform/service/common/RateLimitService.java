@@ -2,41 +2,55 @@ package com.claritycam.platform.service.common;
 
 import com.claritycam.platform.exception.ApiException;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.concurrent.ConcurrentHashMap;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 public class RateLimitService {
-  private final ConcurrentHashMap<String, Deque<Instant>> attempts = new ConcurrentHashMap<>();
+  private final RateLimitStore store;
+  private final MeterRegistry metrics;
+  private final OperationalAlertService alerts;
+
+  public RateLimitService(RateLimitStore store, MeterRegistry metrics, OperationalAlertService alerts) {
+    this.store = store;
+    this.metrics = metrics;
+    this.alerts = alerts;
+  }
 
   public void check(String key, int maxAttempts, Duration window) {
-    Deque<Instant> timestamps = attempts.computeIfAbsent(key, ignored -> new ArrayDeque<>());
-    Instant threshold = Instant.now().minus(window);
-    synchronized (timestamps) {
-      while (!timestamps.isEmpty() && timestamps.peekFirst().isBefore(threshold)) {
-        timestamps.removeFirst();
-      }
-      if (timestamps.size() >= maxAttempts) {
-        throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Bạn thao tác quá nhanh. Vui lòng thử lại sau.");
-      }
-      timestamps.addLast(Instant.now());
+    int hits = store.increment(hash(key), window);
+    if (hits > maxAttempts) {
+      String blockedScope = scope(key);
+      metrics.counter("claritycam.rate_limit.blocked", "scope", blockedScope).increment();
+      alerts.alert("RATE_LIMIT_" + blockedScope.toUpperCase().replaceAll("[^A-Z0-9]+", "_"),
+          "Repeated requests were blocked in scope " + blockedScope + ".");
+      throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+          "Bạn thao tác quá nhanh. Vui lòng thử lại sau.");
     }
   }
 
-  @Scheduled(fixedDelay = 600_000)
-  void cleanupIdleKeys() {
-    Instant threshold = Instant.now().minus(Duration.ofHours(24));
-    attempts.entrySet().removeIf(entry -> {
-      Deque<Instant> timestamps = entry.getValue();
-      synchronized (timestamps) {
-        while (!timestamps.isEmpty() && timestamps.peekFirst().isBefore(threshold)) timestamps.removeFirst();
-        return timestamps.isEmpty();
-      }
-    });
+  @Scheduled(fixedDelayString = "${claritycam.rate-limit.cleanup-ms:600000}")
+  void cleanupExpiredBuckets() {
+    store.deleteExpired();
+  }
+
+  private static String hash(String value) {
+    try {
+      return HexFormat.of().formatHex(
+          MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException impossible) {
+      throw new IllegalStateException("SHA-256 is unavailable", impossible);
+    }
+  }
+
+  private static String scope(String key) {
+    int separator = key.indexOf(':');
+    return separator < 0 ? "unknown" : key.substring(0, separator);
   }
 }

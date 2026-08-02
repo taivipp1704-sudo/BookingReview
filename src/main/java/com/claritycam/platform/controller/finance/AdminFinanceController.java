@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminFinanceController {
   @PostMapping("/entries")
   void createEntry(@Valid @RequestBody FinanceEntryRequest request, Authentication authentication) {
-    throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c nhÃƒÂ¡Ã‚ÂºÃ‚Â­p trÃƒÂ¡Ã‚Â»Ã‚Â±c tiÃƒÂ¡Ã‚ÂºÃ‚Â¿p sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ dÃƒâ€ Ã‚Â°. HÃƒÆ’Ã‚Â£y dÃƒÆ’Ã‚Â¹ng luÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“ng payment, expense, refund hoÃƒÂ¡Ã‚ÂºÃ‚Â·c reversal cÃƒÆ’Ã‚Â³ chÃƒÂ¡Ã‚Â»Ã‚Â©ng tÃƒÂ¡Ã‚Â»Ã‚Â«.");
+    throw ApiException.badRequest("Không được nhập trực tiếp số dư. Hãy dùng luồng payment, expense, refund hoặc reversal có chứng từ.");
   }
 
   public record FinanceEntryRequest(

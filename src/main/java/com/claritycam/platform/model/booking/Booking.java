@@ -120,7 +120,7 @@ public class Booking {
 
   public void requestEarlyPickup(LocalDateTime requestedTime) {
     if (requestedTime != null && !requestedTime.isBefore(pickupTime)) {
-      throw new IllegalArgumentException("ThÃƒÂ¡Ã‚Â»Ã‚Âi gian nhÃƒÂ¡Ã‚ÂºÃ‚Â­n sÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºm phÃƒÂ¡Ã‚ÂºÃ‚Â£i trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc thÃƒÂ¡Ã‚Â»Ã‚Âi gian nhÃƒÂ¡Ã‚ÂºÃ‚Â­n mÃƒÆ’Ã‚Â¡y chÃƒÆ’Ã‚Â­nh thÃƒÂ¡Ã‚Â»Ã‚Â©c.");
+      throw new IllegalArgumentException("Thời gian nhận sớm phải trước thời gian nhận máy chính thức.");
     }
     this.earlyPickupRequested = requestedTime != null;
     this.earlyPickupTime = requestedTime;

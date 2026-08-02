@@ -43,7 +43,7 @@ public class CatalogMediaController {
     try {
       Files.createDirectories(root);
     } catch (IOException error) {
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ khÃƒÂ¡Ã‚Â»Ã…Â¸i tÃƒÂ¡Ã‚ÂºÃ‚Â¡o kho ÃƒÂ¡Ã‚ÂºÃ‚Â£nh catalog.", error);
+      throw new IllegalStateException("Không thể khởi tạo kho ảnh catalog.", error);
     }
   }
 
@@ -55,7 +55,7 @@ public class CatalogMediaController {
     try {
       Files.write(root.resolve(name), normalized);
     } catch (IOException error) {
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ lÃƒâ€ Ã‚Â°u ÃƒÂ¡Ã‚ÂºÃ‚Â£nh catalog.", error);
+      throw new IllegalStateException("Không thể lưu ảnh catalog.", error);
     }
     return Map.of("url", "/api/media/catalog/" + name);
   }
@@ -63,11 +63,11 @@ public class CatalogMediaController {
   @GetMapping("/media/catalog/{name}")
   ResponseEntity<byte[]> read(@PathVariable String name) {
     if (!name.matches("[0-9a-fA-F-]{36}\\.jpg")) {
-      throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y ÃƒÂ¡Ã‚ÂºÃ‚Â£nh.");
+      throw ApiException.notFound("Không tìm thấy ảnh.");
     }
     Path file = root.resolve(name).normalize();
     if (!file.startsWith(root) || !Files.isRegularFile(file)) {
-      throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y ÃƒÂ¡Ã‚ÂºÃ‚Â£nh.");
+      throw ApiException.notFound("Không tìm thấy ảnh.");
     }
     try {
       return ResponseEntity.ok()
@@ -75,30 +75,30 @@ public class CatalogMediaController {
           .contentType(MediaType.IMAGE_JPEG)
           .body(Files.readAllBytes(file));
     } catch (IOException error) {
-      throw new IllegalStateException("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Âc ÃƒÂ¡Ã‚ÂºÃ‚Â£nh catalog.", error);
+      throw new IllegalStateException("Không thể đọc ảnh catalog.", error);
     }
   }
 
   private byte[] normalize(MultipartFile file) {
-    if (file == null || file.isEmpty()) throw ApiException.badRequest("Vui lÃƒÆ’Ã‚Â²ng chÃƒÂ¡Ã‚Â»Ã‚Ân ÃƒÂ¡Ã‚ÂºÃ‚Â£nh JPG hoÃƒÂ¡Ã‚ÂºÃ‚Â·c PNG.");
-    if (file.getSize() > MAX_BYTES) throw ApiException.badRequest("ÃƒÂ¡Ã‚ÂºÃ‚Â¢nh khÃƒÆ’Ã‚Â´ng Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c vÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£t quÃƒÆ’Ã‚Â¡ 8 MB.");
+    if (file == null || file.isEmpty()) throw ApiException.badRequest("Vui lòng chọn ảnh JPG hoặc PNG.");
+    if (file.getSize() > MAX_BYTES) throw ApiException.badRequest("Ảnh không được vượt quá 8 MB.");
     try {
       byte[] source = file.getBytes();
       BufferedImage decoded;
       try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(source))) {
         var readers = ImageIO.getImageReaders(input);
-        if (!readers.hasNext()) throw ApiException.badRequest("TÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡p tÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÆ’Ã‚Âªn khÃƒÆ’Ã‚Â´ng phÃƒÂ¡Ã‚ÂºÃ‚Â£i ÃƒÂ¡Ã‚ÂºÃ‚Â£nh hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+        if (!readers.hasNext()) throw ApiException.badRequest("Tệp tải lên không phải ảnh hợp lệ.");
         ImageReader reader = readers.next();
         try {
           reader.setInput(input, true, true);
           String format = reader.getFormatName().toUpperCase();
           if (!format.equals("JPEG") && !format.equals("JPG") && !format.equals("PNG")) {
-            throw ApiException.badRequest("ChÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° hÃƒÂ¡Ã‚Â»Ã¢â‚¬â€ trÃƒÂ¡Ã‚Â»Ã‚Â£ ÃƒÂ¡Ã‚ÂºÃ‚Â£nh JPG hoÃƒÂ¡Ã‚ÂºÃ‚Â·c PNG.");
+            throw ApiException.badRequest("Chỉ hỗ trợ ảnh JPG hoặc PNG.");
           }
           int width = reader.getWidth(0);
           int height = reader.getHeight(0);
           if (width < 240 || height < 180 || (long) width * height > MAX_PIXELS) {
-            throw ApiException.badRequest("KÃƒÆ’Ã‚Â­ch thÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc ÃƒÂ¡Ã‚ÂºÃ‚Â£nh khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+            throw ApiException.badRequest("Kích thước ảnh không hợp lệ.");
           }
           decoded = reader.read(0);
         } finally {
@@ -122,7 +122,7 @@ public class CatalogMediaController {
     } catch (ApiException error) {
       throw error;
     } catch (IOException error) {
-      throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Âc ÃƒÂ¡Ã‚ÂºÃ‚Â£nh tÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÆ’Ã‚Âªn.");
+      throw ApiException.badRequest("Không thể đọc ảnh tải lên.");
     }
   }
 }

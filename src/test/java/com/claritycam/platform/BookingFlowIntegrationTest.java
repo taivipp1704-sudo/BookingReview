@@ -74,7 +74,10 @@ class BookingFlowIntegrationTest {
 
   @Test
   void publicScheduleExposesOnlyAnonymousOccupiedIntervals() throws Exception {
+    Csrf csrf = csrf();
+    MockHttpSession customer = customerSession(csrf, "0907000076", "Khách xem lịch");
     MvcResult result = mockMvc.perform(get("/api/catalog/GEAR-001/schedule")
+            .session(customer)
             .param("from", LocalDateTime.now().minusDays(7).toString())
             .param("to", LocalDateTime.now().plusDays(7).toString()))
         .andExpect(status().isOk())
@@ -97,7 +100,7 @@ class BookingFlowIntegrationTest {
   @Test
   void customerCompletesCurrentOnboardingVersion() throws Exception {
     Csrf csrf = csrf();
-    MockHttpSession customer = customerSession(csrf, "0907777123", "KhÃƒÂ¡ch onboarding");
+    MockHttpSession customer = customerSession(csrf, "0907777123", "Khách onboarding");
     mockMvc.perform(get("/api/customer/account/me").session(customer))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.onboardingVersion").value(0));
@@ -117,22 +120,19 @@ class BookingFlowIntegrationTest {
     mockMvc.perform(post("/api/customer/account/login")
             .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\"}"))
+            .content("{\"phone\":\"" + phone + "\",\"password\":\"short\"}"))
         .andExpect(status().isBadRequest());
-
-    String loginToken = accountVerificationToken(csrf, phone);
 
     mockMvc.perform(post("/api/customer/account/login")
             .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"verificationToken\":\"" + loginToken + "\"}"))
+            .content("{\"phone\":\"" + phone + "\",\"password\":\"password-123\"}"))
         .andExpect(status().isUnauthorized());
 
-    String registerToken = accountVerificationToken(csrf, phone);
     mockMvc.perform(post("/api/customer/account/register")
             .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"verificationToken\":\"" + registerToken + "\"}"))
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"password\":\"password-123\",\"consentAccepted\":true}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.phone").value(phone))
         .andExpect(jsonPath("$.onboardingVersion").value(0));
@@ -140,14 +140,13 @@ class BookingFlowIntegrationTest {
     mockMvc.perform(post("/api/customer/account/login")
             .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"verificationToken\":\"" + registerToken + "\"}"))
-        .andExpect(status().isForbidden());
+            .content("{\"phone\":\"" + phone + "\",\"password\":\"wrong-password\"}"))
+        .andExpect(status().isUnauthorized());
 
-    String secondLoginToken = accountVerificationToken(csrf, phone);
     MvcResult secondLogin = mockMvc.perform(post("/api/customer/account/login")
             .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"Khach moi\",\"verificationToken\":\"" + secondLoginToken + "\"}"))
+            .content("{\"phone\":\"" + phone + "\",\"password\":\"password-123\"}"))
         .andExpect(status().isOk())
         .andReturn();
 
@@ -195,7 +194,7 @@ class BookingFlowIntegrationTest {
   }
 
   @Test
-  void approvedExcelImportIsAdminOnlyInactiveAndIdempotent() throws Exception {
+  void approvedExcelImportIsAdminOnlyActiveForPreviewAndIdempotent() throws Exception {
     Csrf csrf = csrf();
     MockHttpSession admin = adminSession(csrf);
     String payload = "{\"confirmation\":\"IMPORT_APPROVED_EXCEL\"}";
@@ -208,9 +207,9 @@ class BookingFlowIntegrationTest {
         .andExpect(jsonPath("$.assetsCreated").value(18))
         .andExpect(jsonPath("$.draftRecordsUpserted")
             .value(org.hamcrest.Matchers.greaterThan(0)))
-        .andExpect(jsonPath("$.status").value("DRAFT_REVIEW_REQUIRED"));
+        .andExpect(jsonPath("$.status").value("ACTIVE_PREVIEW"));
 
-    assertFalse(productRepository.findById("CAM-CANON-R50").orElseThrow().isActive());
+    assertTrue(productRepository.findById("CAM-CANON-R50").orElseThrow().isActive());
 
     mockMvc.perform(post("/api/admin/imports/amy-catalog")
             .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
@@ -271,7 +270,7 @@ class BookingFlowIntegrationTest {
 
   @Test
   void promotionOnlyDiscountsTheEligibleCalendarDay() throws Exception {
-    promotions.save(new Promotion("PROMO-TEST-SAT", "SAT20", "GiÃ¡ÂºÂ£m riÃƒÂªng thÃ¡Â»Â© BÃ¡ÂºÂ£y", BigDecimal.valueOf(20),
+    promotions.save(new Promotion("PROMO-TEST-SAT", "SAT20", "Giảm riêng thứ Bảy", BigDecimal.valueOf(20),
         true, LocalDate.of(2027, 1, 1), LocalDate.of(2027, 12, 31), Set.of(DayOfWeek.SATURDAY), "ALL"));
     Csrf csrf = csrf();
     mockMvc.perform(post("/api/bookings/quote")
@@ -328,7 +327,7 @@ class BookingFlowIntegrationTest {
   @Test
   void repeatedHoldRequestsWithoutTokenReuseTheActiveCustomerHold() throws Exception {
     Csrf csrf = csrf();
-    MockHttpSession customer = customerSession(csrf, "0903333333", "KhÃƒÂ¡ch thao tÃƒÂ¡c nhanh");
+    MockHttpSession customer = customerSession(csrf, "0903333333", "Khách thao tác nhanh");
     String payload = "{\"pickupTime\":\"2027-05-20T08:00:00\",\"returnTime\":\"2027-05-20T20:00:00\",\"items\":[{\"productId\":\"GEAR-002\",\"quantity\":1}]}";
     String firstToken = null;
 
@@ -358,8 +357,8 @@ class BookingFlowIntegrationTest {
             .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
             .content("""
-                {"name":"Chi nhÃƒÂ¡nh kiÃ¡Â»Æ’m thÃ¡Â»Â­","address":"123 Ã„ÂÃ†Â°Ã¡Â»Âng kiÃ¡Â»Æ’m thÃ¡Â»Â­, TP.HCM",
-                 "phone":"0909000000","note":"DÃ¡Â»Â¯ liÃ¡Â»â€¡u test","active":true,"sortOrder":1}
+                {"name":"Chi nhánh kiểm thử","address":"123 Đường kiểm thử, TP.HCM",
+                 "phone":"0909000000","note":"Dữ liệu test","active":true,"sortOrder":1}
                 """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.code").value(org.hamcrest.Matchers.startsWith("STORE-")))
@@ -369,7 +368,7 @@ class BookingFlowIntegrationTest {
     mockMvc.perform(get("/api/stores"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].id").value(branchId))
-        .andExpect(jsonPath("$[0].address").value("123 Ã„ÂÃ†Â°Ã¡Â»Âng kiÃ¡Â»Æ’m thÃ¡Â»Â­, TP.HCM"))
+        .andExpect(jsonPath("$[0].address").value("123 Đường kiểm thử, TP.HCM"))
         .andExpect(jsonPath("$[0].note").doesNotExist())
         .andExpect(jsonPath("$[0].createdAt").doesNotExist());
   }
@@ -377,7 +376,7 @@ class BookingFlowIntegrationTest {
   @Test
   void temporaryHoldExpiryIsTimezoneAwareAndFiveMinutesLong() throws Exception {
     Csrf csrf = csrf();
-    MockHttpSession customer = customerSession(csrf, "0903333344", "KhÃƒÂ¡ch kiÃ¡Â»Æ’m tra thÃ¡Â»Âi gian giÃ¡Â»Â¯");
+    MockHttpSession customer = customerSession(csrf, "0903333344", "Khách kiểm tra thời gian giữ");
     Instant requestedAt = Instant.now();
     MvcResult result = mockMvc.perform(post("/api/bookings/hold")
             .session(customer)
@@ -398,9 +397,9 @@ class BookingFlowIntegrationTest {
 
   @Test
   void verifiesPhoneCreatesBookingAndAuditsAdminStateChange() throws Exception {
-    long bookingCountBefore = bookingCountFor("GEAR-001");
     Csrf csrf = csrf();
-    MockHttpSession customerSession = customerSession(csrf, "0901234567", "NguyÃ¡Â»â€¦n VÃ„Æ’n A");
+    MockHttpSession customerSession = customerSession(csrf, "0901234567", "Nguyễn Văn A");
+    long bookingCountBefore = bookingCountFor("GEAR-001", customerSession);
 
     MvcResult otpRequest = mockMvc.perform(post("/api/otp/request")
             .session(customerSession)
@@ -456,7 +455,7 @@ class BookingFlowIntegrationTest {
         .andExpect(status().isCreated())
         .andReturn();
     String bookingId = objectMapper.readTree(bookingResult.getResponse().getContentAsString()).path("id").asText();
-    assertEquals(bookingCountBefore + 1, bookingCountFor("GEAR-001"));
+    assertEquals(bookingCountBefore + 1, bookingCountFor("GEAR-001", customerSession));
 
     mockMvc.perform(get("/api/customer/account/bookings").session(customerSession))
         .andExpect(status().isOk())
@@ -477,7 +476,7 @@ class BookingFlowIntegrationTest {
     assertEquals("image/jpeg", customerPaymentProof.getResponse().getContentType());
     assertTrue(customerPaymentProof.getResponse().getContentAsByteArray().length > 0);
 
-    MockHttpSession otherCustomer = customerSession(csrf, "0909999999", "KhÃƒÂ¡ch khÃƒÂ¡c");
+    MockHttpSession otherCustomer = customerSession(csrf, "0909999999", "Khách khác");
     mockMvc.perform(get("/api/customer/account/bookings/{id}/identity/front", bookingId).session(otherCustomer))
         .andExpect(status().isForbidden());
 
@@ -523,7 +522,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"approved\":true,\"fee\":150000,\"reason\":\"Ã„ÂÃƒÂ£ thÃ¡Â»Âa thuÃ¡ÂºÂ­n nhÃ¡ÂºÂ­n sÃ¡Â»â€ºm\"}"))
+            .content("{\"approved\":true,\"fee\":150000,\"reason\":\"Đã thỏa thuận nhận sớm\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.earlyPickupApproved").value(true));
 
@@ -532,7 +531,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"state\":\"TEMP_HOLD\",\"reason\":\"Ã„Âang kiÃ¡Â»Æ’m tra cÃ¡Â»Âc\"}"))
+            .content("{\"state\":\"TEMP_HOLD\",\"reason\":\"Đang kiểm tra cọc\"}"))
         .andExpect(status().isOk());
 
     mockMvc.perform(get("/api/admin/bookings/{id}/audit", bookingId).session(adminSession))
@@ -543,7 +542,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"state\":\"CONFIRMED\",\"reason\":\"Ã„ÂÃƒÂ£ xÃƒÂ¡c nhÃ¡ÂºÂ­n Ã„â€˜Ã†Â¡n\"}"))
+            .content("{\"state\":\"CONFIRMED\",\"reason\":\"Đã xác nhận đơn\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.state").value("CONFIRMED"))
         .andReturn();
@@ -557,7 +556,7 @@ class BookingFlowIntegrationTest {
             .contentType(APPLICATION_JSON)
             .content("{\"bookingId\":\"" + bookingId + "\",\"amount\":" + amountDueNow
                 + ",\"method\":\"BANK_TRANSFER\",\"providerReference\":\"TEST-" + bookingId
-                + "\",\"idempotencyKey\":\"test-payment-" + bookingId + "\",\"note\":\"Ã„ÂÃƒÂ£ Ã„â€˜Ã¡Â»â€˜i soÃƒÂ¡t\"}"))
+                + "\",\"idempotencyKey\":\"test-payment-" + bookingId + "\",\"note\":\"Đã đối soát\"}"))
         .andExpect(status().isOk());
 
     MvcResult confirmedOperations = mockMvc.perform(get("/api/admin/bookings/{id}/operations", bookingId)
@@ -572,7 +571,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"state\":\"IN_USE\",\"reason\":\"Ã„ÂÃƒÂ£ duyÃ¡Â»â€¡t giao mÃƒÂ¡y\"}"))
+            .content("{\"state\":\"IN_USE\",\"reason\":\"Đã duyệt giao máy\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.state").value("IN_USE"));
 
@@ -586,15 +585,15 @@ class BookingFlowIntegrationTest {
         .anyMatch(entry -> "CHECKOUT".equals(entry.getMovementType()) && bookingId.equals(
             entry.getDocumentId().replace("BOOKING-", "").replace("-CHECKOUT", ""))));
 
-    mockMvc.perform(get("/api/catalog/availability"))
+    mockMvc.perform(get("/api/catalog/availability").session(customerSession))
         .andExpect(status().isOk());
   }
 
   @Test
   void temporaryHoldRequiresThirtyMinutePreparationBuffer() throws Exception {
     Csrf csrf = csrf();
-    MockHttpSession firstCustomer = customerSession(csrf, "0901111111", "KhÃƒÂ¡ch thÃ¡Â»Â© nhÃ¡ÂºÂ¥t");
-    MockHttpSession secondCustomer = customerSession(csrf, "0902222222", "KhÃƒÂ¡ch thÃ¡Â»Â© hai");
+    MockHttpSession firstCustomer = customerSession(csrf, "0901111111", "Khách thứ nhất");
+    MockHttpSession secondCustomer = customerSession(csrf, "0902222222", "Khách thứ hai");
     String firstPayload = "{\"pickupTime\":\"2027-04-10T08:00:00\",\"returnTime\":\"2027-04-10T20:00:00\",\"items\":[{\"productId\":\"GEAR-002\",\"quantity\":1}]}";
     MvcResult first = mockMvc.perform(post("/api/bookings/hold")
             .session(firstCustomer)
@@ -648,8 +647,8 @@ class BookingFlowIntegrationTest {
             .session(admin).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
             .content("""
-                {"name":"Kho sÃ¡ÂºÂ£n phÃ¡ÂºÂ©m kiÃ¡Â»Æ’m thÃ¡Â»Â­","address":"456 Ã„ÂÃ†Â°Ã¡Â»Âng kiÃ¡Â»Æ’m thÃ¡Â»Â­, TP.HCM",
-                 "phone":"0909111222","note":"GÃ¡ÂºÂ¯n sÃ¡ÂºÂ£n phÃ¡ÂºÂ©m theo chi nhÃƒÂ¡nh","active":true,"sortOrder":2}
+                {"name":"Kho sản phẩm kiểm thử","address":"456 Đường kiểm thử, TP.HCM",
+                 "phone":"0909111222","note":"Gắn sản phẩm theo chi nhánh","active":true,"sortOrder":2}
                 """))
         .andExpect(status().isCreated())
         .andReturn();
@@ -725,8 +724,8 @@ class BookingFlowIntegrationTest {
     assertEquals(7, stockItems.findById("ACC-TEST-001").orElseThrow().getTotalQty());
   }
 
-  private long bookingCountFor(String productId) throws Exception {
-    MvcResult result = mockMvc.perform(get("/api/catalog/products"))
+  private long bookingCountFor(String productId, MockHttpSession customer) throws Exception {
+    MvcResult result = mockMvc.perform(get("/api/catalog/products").session(customer))
         .andExpect(status().isOk())
         .andReturn();
     for (JsonNode product : objectMapper.readTree(result.getResponse().getContentAsString())) {
@@ -739,31 +738,12 @@ class BookingFlowIntegrationTest {
 
   private MockHttpSession customerSession(Csrf csrf, String phone, String name) throws Exception {
     MockHttpSession session = new MockHttpSession();
-    String verificationToken = accountVerificationToken(csrf, phone);
     MvcResult login = mockMvc.perform(post("/api/customer/account/register")
             .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\",\"verificationToken\":\"" + verificationToken + "\"}"))
+            .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\",\"password\":\"test-password\",\"consentAccepted\":true}"))
         .andExpect(status().isCreated()).andReturn();
     return (MockHttpSession) login.getRequest().getSession(false);
-  }
-
-  private String accountVerificationToken(Csrf csrf, String phone) throws Exception {
-    MvcResult requested = mockMvc.perform(post("/api/otp/request")
-            .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
-            .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"" + phone + "\",\"purpose\":\"ACCOUNT\"}"))
-        .andExpect(status().isOk()).andReturn();
-    JsonNode otp = objectMapper.readTree(requested.getResponse().getContentAsString());
-    MvcResult verified = mockMvc.perform(post("/api/otp/verify")
-            .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
-            .contentType(APPLICATION_JSON)
-            .content("{\"challengeId\":\"" + otp.path("challengeId").asText()
-                + "\",\"phone\":\"" + phone + "\",\"code\":\"" + otp.path("demoCode").asText()
-                + "\",\"purpose\":\"ACCOUNT\"}"))
-        .andExpect(status().isOk()).andReturn();
-    return objectMapper.readTree(verified.getResponse().getContentAsString())
-        .path("verificationToken").asText();
   }
 
   private MockHttpSession adminSession(Csrf csrf) throws Exception {

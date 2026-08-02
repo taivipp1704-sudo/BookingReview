@@ -85,21 +85,21 @@ public class AdminCatalogController {
     validateStoreBranch(payload.storeBranchId());
     String productId = productId(request.productCode(), payload);
     if (products.existsById(productId)) {
-      throw ApiException.badRequest("MÃƒÆ’Ã‚Â£ sÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+      throw ApiException.badRequest("Mã sản phẩm đã tồn tại.");
     }
 
     List<String> serialNumbers = normalizedSerials(request.serialNumbers());
     boolean serialized = "SERIALIZED".equals(payload.trackingMode());
     int initialStockQty = request.initialStockQty() == null ? 0 : request.initialStockQty();
     if (serialized && initialStockQty > 0) {
-      throw ApiException.badRequest("ThiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ theo serial phÃƒÂ¡Ã‚ÂºÃ‚Â£i nhÃƒÂ¡Ã‚ÂºÃ‚Â­p danh sÃƒÆ’Ã‚Â¡ch serial thay vÃƒÆ’Ã‚Â¬ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ng sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ lÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£ng.");
+      throw ApiException.badRequest("Thiết bị theo serial phải nhập danh sách serial thay vì tổng số lượng.");
     }
     if (!serialized && !serialNumbers.isEmpty()) {
-      throw ApiException.badRequest("SÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m theo sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ lÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£ng khÃƒÆ’Ã‚Â´ng sÃƒÂ¡Ã‚Â»Ã‚Â­ dÃƒÂ¡Ã‚Â»Ã‚Â¥ng danh sÃƒÆ’Ã‚Â¡ch serial.");
+      throw ApiException.badRequest("Sản phẩm theo số lượng không sử dụng danh sách serial.");
     }
     for (String serialNumber : serialNumbers) {
       if (assets.existsById(serialNumber)) {
-        throw ApiException.badRequest("Serial Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i: " + serialNumber);
+        throw ApiException.badRequest("Serial đã tồn tại: " + serialNumber);
       }
     }
 
@@ -110,12 +110,12 @@ public class AdminCatalogController {
           .toList();
       assets.saveAll(createdAssets);
       createdAssets.forEach(asset -> ledger.append(null, productId, asset.getSerialId(), "ASSET_RECEIPT", 1,
-          null, "KhÃƒÂ¡Ã‚Â»Ã…Â¸i tÃƒÂ¡Ã‚ÂºÃ‚Â¡o tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n kho cÃƒÆ’Ã‚Â¹ng sÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m", authentication.getName()));
+          null, "Khởi tạo tồn kho cùng sản phẩm", authentication.getName()));
     } else {
       stock.save(new StockItem(productId, initialStockQty, 0));
       if (initialStockQty > 0) {
         ledger.append(null, productId, null, "INITIAL_STOCK", initialStockQty, initialStockQty,
-            "KhÃƒÂ¡Ã‚Â»Ã…Â¸i tÃƒÂ¡Ã‚ÂºÃ‚Â¡o tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n kho cÃƒÆ’Ã‚Â¹ng sÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m", authentication.getName());
+            "Khởi tạo tồn kho cùng sản phẩm", authentication.getName());
       }
     }
     audit.record(authentication.getName(), "CATALOG_PRODUCT_CREATED", "PRODUCT", product.getId(), product.getName());
@@ -126,7 +126,7 @@ public class AdminCatalogController {
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   Product update(@PathVariable String id, @Valid @RequestBody ProductPayload payload, Authentication authentication) {
     validateStoreBranch(payload.storeBranchId());
-    Product product = products.findById(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹."));
+    Product product = products.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy thiết bị."));
     product.apply(payload);
     Product saved = products.save(product);
     audit.record(authentication.getName(), "CATALOG_PRODUCT_UPDATED", "PRODUCT", saved.getId(), saved.getName());
@@ -136,7 +136,7 @@ public class AdminCatalogController {
   @DeleteMapping("/products/{id}")
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   Product archive(@PathVariable String id, Authentication authentication) {
-    Product product = products.findById(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹."));
+    Product product = products.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy thiết bị."));
     product.deactivate();
     Product saved = products.save(product);
     audit.record(authentication.getName(), "CATALOG_PRODUCT_ARCHIVED", "PRODUCT", id, saved.getName());
@@ -158,7 +158,7 @@ public class AdminCatalogController {
         .filter(value -> !value.isBlank())
         .toList();
     if (new LinkedHashSet<>(normalized).size() != normalized.size()) {
-      throw ApiException.badRequest("Danh sÃƒÆ’Ã‚Â¡ch serial cÃƒÆ’Ã‚Â³ giÃƒÆ’Ã‚Â¡ trÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ trÃƒÆ’Ã‚Â¹ng nhau.");
+      throw ApiException.badRequest("Danh sách serial có giá trị trùng nhau.");
     }
     return normalized;
   }
@@ -166,7 +166,7 @@ public class AdminCatalogController {
   private void validateStoreBranch(String storeBranchId) {
     if (storeBranchId == null || storeBranchId.isBlank()) return;
     if (!storeBranches.existsById(storeBranchId.trim())) {
-      throw ApiException.badRequest("Chi nhÃƒÆ’Ã‚Â¡nh Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c chÃƒÂ¡Ã‚Â»Ã‚Ân khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+      throw ApiException.badRequest("Chi nhánh được chọn không tồn tại.");
     }
   }
 }

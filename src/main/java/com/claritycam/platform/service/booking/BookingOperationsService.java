@@ -119,7 +119,7 @@ public class BookingOperationsService {
     List<BookingAllocation> created = new ArrayList<>();
     for (Map.Entry<String, Integer> request : requested.entrySet()) {
       Product product = products.findById(request.getKey())
-          .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ cÃƒÂ¡Ã‚ÂºÃ‚Â§n phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢."));
+          .orElseThrow(() -> ApiException.notFound("Không tìm thấy thiết bị cần phân bổ."));
       if ("SERIALIZED".equals(product.getTrackingMode())) {
         List<InventoryAsset> candidates = assets.findByProductIdAndStatusForUpdate(product.getId(), "AVAILABLE")
             .stream()
@@ -127,15 +127,15 @@ public class BookingOperationsService {
             .limit(request.getValue())
             .toList();
         if (candidates.size() < request.getValue()) {
-          throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ serial sÃƒÂ¡Ã‚ÂºÃ‚Âµn sÃƒÆ’Ã‚Â ng Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã†â€™ phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ cho " + product.getName() + ".");
+          throw ApiException.badRequest("Không đủ serial sẵn sàng để phân bổ cho " + product.getName() + ".");
         }
         candidates.forEach(asset -> created.add(new BookingAllocation(booking.getId(), product.getId(),
             asset.getSerialId(), 1, AllocationRole.PRIMARY, actor)));
       } else {
         StockItem item = stock.findByIdForUpdate(product.getId())
-            .orElseThrow(() -> ApiException.badRequest("ChÃƒâ€ Ã‚Â°a cÃƒÆ’Ã‚Â³ sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ dÃƒâ€ Ã‚Â° kho cho " + product.getName() + "."));
+            .orElseThrow(() -> ApiException.badRequest("Chưa có số dư kho cho " + product.getName() + "."));
         if (item.getAvailableQty() < request.getValue()) {
-          throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n khÃƒÂ¡Ã‚ÂºÃ‚Â£ dÃƒÂ¡Ã‚Â»Ã‚Â¥ng Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã†â€™ phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ cho " + product.getName() + ".");
+          throw ApiException.badRequest("Không đủ tồn khả dụng để phân bổ cho " + product.getName() + ".");
         }
         created.add(new BookingAllocation(booking.getId(), product.getId(), null, request.getValue(),
             AllocationRole.PRIMARY, actor));
@@ -152,18 +152,18 @@ public class BookingOperationsService {
       if (allocation.getState() == AllocationState.IN_USE) continue;
       if (allocation.getSerialId() != null) {
         InventoryAsset asset = assets.findById(allocation.getSerialId())
-            .orElseThrow(() -> ApiException.notFound("Serial phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i."));
+            .orElseThrow(() -> ApiException.notFound("Serial phân bổ không còn tồn tại."));
         asset.updateStatus("IN_USE");
         assets.save(asset);
         ledger.append(documentId, allocation.getProductId(), allocation.getSerialId(), "CHECKOUT", -1, null,
-            "BÃƒÆ’Ã‚Â n giao theo booking " + booking.getId(), actor);
+            "Bàn giao theo booking " + booking.getId(), actor);
       } else {
         StockItem item = stock.findByIdForUpdate(allocation.getProductId())
-            .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ dÃƒâ€ Ã‚Â° kho."));
+            .orElseThrow(() -> ApiException.notFound("Không tìm thấy số dư kho."));
         item.adjustInUse(allocation.getQuantity());
         stock.save(item);
         ledger.append(documentId, allocation.getProductId(), null, "CHECKOUT", -allocation.getQuantity(),
-            item.getAvailableQty(), "BÃƒÆ’Ã‚Â n giao theo booking " + booking.getId(), actor);
+            item.getAvailableQty(), "Bàn giao theo booking " + booking.getId(), actor);
       }
       allocation.changeState(AllocationState.IN_USE);
     }
@@ -187,13 +187,13 @@ public class BookingOperationsService {
           }
         });
         ledger.append(documentId, allocation.getProductId(), allocation.getSerialId(), "RETURN", 1, null,
-            "HoÃƒÆ’Ã‚Â n trÃƒÂ¡Ã‚ÂºÃ‚Â£ theo booking " + booking.getId(), actor);
+            "Hoàn trả theo booking " + booking.getId(), actor);
       } else if (allocation.getState() == AllocationState.IN_USE) {
         stock.findByIdForUpdate(allocation.getProductId()).ifPresent(item -> {
           item.adjustInUse(-allocation.getQuantity());
           stock.save(item);
           ledger.append(documentId, allocation.getProductId(), null, "RETURN", allocation.getQuantity(),
-              item.getAvailableQty(), "HoÃƒÆ’Ã‚Â n trÃƒÂ¡Ã‚ÂºÃ‚Â£ theo booking " + booking.getId(), actor);
+              item.getAvailableQty(), "Hoàn trả theo booking " + booking.getId(), actor);
         });
       }
       allocation.changeState(AllocationState.RELEASED);

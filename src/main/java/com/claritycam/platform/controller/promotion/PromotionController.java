@@ -61,7 +61,7 @@ public class PromotionController {
   @PatchMapping("/{id}")
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER','SALES')")
   Promotion update(@PathVariable String id, @Valid @RequestBody Payload payload, Authentication authentication) {
-    Promotion promotion = promotions.findById(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y mÃƒÆ’Ã‚Â£ giÃƒÂ¡Ã‚ÂºÃ‚Â£m giÃƒÆ’Ã‚Â¡."));
+    Promotion promotion = promotions.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy mã giảm giá."));
     validate(payload, promotion.getCode());
     promotion.apply(payload.code(), payload.name(), payload.discountPercent(), payload.active(), payload.startDate(),
         payload.endDate(), payload.applicableWeekdays(), payload.dayParity());
@@ -73,7 +73,7 @@ public class PromotionController {
   @DeleteMapping("/{id}")
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER','SALES')")
   Promotion archive(@PathVariable String id, Authentication authentication) {
-    Promotion promotion = promotions.findById(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y mÃƒÆ’Ã‚Â£ giÃƒÂ¡Ã‚ÂºÃ‚Â£m giÃƒÆ’Ã‚Â¡."));
+    Promotion promotion = promotions.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy mã giảm giá."));
     promotion.deactivate();
     Promotion saved = promotions.save(promotion);
     audit.record(authentication.getName(), "PROMOTION_ARCHIVED", "PROMOTION", id, saved.getCode());
@@ -82,11 +82,11 @@ public class PromotionController {
 
   private void validate(Payload payload, String currentCode) {
     if (payload.endDate().isBefore(payload.startDate())) {
-      throw ApiException.badRequest("NgÃƒÆ’Ã‚Â y kÃƒÂ¡Ã‚ÂºÃ‚Â¿t thÃƒÆ’Ã‚Âºc phÃƒÂ¡Ã‚ÂºÃ‚Â£i bÃƒÂ¡Ã‚ÂºÃ‚Â±ng hoÃƒÂ¡Ã‚ÂºÃ‚Â·c sau ngÃƒÆ’Ã‚Â y bÃƒÂ¡Ã‚ÂºÃ‚Â¯t Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â§u.");
+      throw ApiException.badRequest("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.");
     }
     boolean duplicate = promotions.findByCodeIgnoreCase(payload.code().trim())
         .map(found -> currentCode == null || !found.getCode().equalsIgnoreCase(currentCode)).orElse(false);
-    if (duplicate) throw ApiException.badRequest("MÃƒÆ’Ã‚Â£ giÃƒÂ¡Ã‚ÂºÃ‚Â£m giÃƒÆ’Ã‚Â¡ Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+    if (duplicate) throw ApiException.badRequest("Mã giảm giá đã tồn tại.");
   }
 
   public record Payload(

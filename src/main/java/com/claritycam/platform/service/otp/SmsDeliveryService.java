@@ -55,9 +55,9 @@ public class SmsDeliveryService {
   public void sendOtp(String phone, String code, int expiryMinutes, String requestId) {
     if (!ESMS_PROVIDER.equals(provider)) {
       if ("none".equals(provider)) {
-        throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "DÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ch vÃƒÂ¡Ã‚Â»Ã‚Â¥ gÃƒÂ¡Ã‚Â»Ã‚Â­i SMS OTP chÃƒâ€ Ã‚Â°a Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c cÃƒÂ¡Ã‚ÂºÃ‚Â¥u hÃƒÆ’Ã‚Â¬nh.");
+        throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Dịch vụ gửi SMS OTP chưa được cấu hình.");
       }
-      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "NhÃƒÆ’Ã‚Â  cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p SMS khÃƒÆ’Ã‚Â´ng Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c hÃƒÂ¡Ã‚Â»Ã¢â‚¬â€ trÃƒÂ¡Ã‚Â»Ã‚Â£.");
+      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Nhà cung cấp SMS không được hỗ trợ.");
     }
     validateEsmsConfiguration();
 
@@ -82,12 +82,12 @@ public class SmsDeliveryService {
           .body(new ParameterizedTypeReference<>() {});
       String resultCode = response == null ? null : String.valueOf(response.get("CodeResult"));
       if (!"100".equals(resultCode)) {
-        throw new ApiException(HttpStatus.BAD_GATEWAY, "NhÃƒÆ’Ã‚Â  cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p SMS tÃƒÂ¡Ã‚Â»Ã‚Â« chÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœi yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u gÃƒÂ¡Ã‚Â»Ã‚Â­i OTP.");
+        throw new ApiException(HttpStatus.BAD_GATEWAY, "Nhà cung cấp SMS từ chối yêu cầu gửi OTP.");
       }
     } catch (ApiException exception) {
       throw exception;
     } catch (RestClientException exception) {
-      throw new ApiException(HttpStatus.BAD_GATEWAY, "KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ kÃƒÂ¡Ã‚ÂºÃ‚Â¿t nÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœi tÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi nhÃƒÆ’Ã‚Â  cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p SMS.");
+      throw new ApiException(HttpStatus.BAD_GATEWAY, "Không thể kết nối tới nhà cung cấp SMS.");
     }
   }
 
@@ -97,7 +97,7 @@ public class SmsDeliveryService {
         || !StringUtils.hasText(brandname)
         || !StringUtils.hasText(template)
         || !template.contains("{OTP}")) {
-      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "CÃƒÂ¡Ã‚ÂºÃ‚Â¥u hÃƒÆ’Ã‚Â¬nh eSMS chÃƒâ€ Ã‚Â°a Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â§y Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ hoÃƒÂ¡Ã‚ÂºÃ‚Â·c mÃƒÂ¡Ã‚ÂºÃ‚Â«u tin thiÃƒÂ¡Ã‚ÂºÃ‚Â¿u {OTP}.");
+      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Cấu hình eSMS chưa đầy đủ hoặc mẫu tin thiếu {OTP}.");
     }
   }
 }

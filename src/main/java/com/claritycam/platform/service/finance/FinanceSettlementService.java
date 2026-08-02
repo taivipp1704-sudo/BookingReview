@@ -161,8 +161,8 @@ public class FinanceSettlementService {
     }
     Booking booking = bookingForUpdate(bookingId);
     CommercialSnapshot snapshot = initializeCommercialSnapshot(booking, actor);
-    BigDecimal received = positive(amount, "SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân thanh toÃƒÆ’Ã‚Â¡n phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºn hÃƒâ€ Ã‚Â¡n 0.");
-    Payment payment = new Payment("PAY-" + compactId(), bookingId, received, required(method, "PhÃƒâ€ Ã‚Â°Ãƒâ€ Ã‚Â¡ng thÃƒÂ¡Ã‚Â»Ã‚Â©c thanh toÃƒÆ’Ã‚Â¡n"),
+    BigDecimal received = positive(amount, "Số tiền thanh toán phải lớn hơn 0.");
+    Payment payment = new Payment("PAY-" + compactId(), bookingId, received, required(method, "Phương thức thanh toán"),
         normalize(providerReference, "MANUAL-" + compactId()), key, actor, normalize(note, ""));
 
     List<PaymentAllocation> allocations = new ArrayList<>();
@@ -251,8 +251,8 @@ public class FinanceSettlementService {
     BigDecimal paid = paymentAllocations.findByBookingIdOrderByAllocatedAtAsc(booking.getId()).stream()
         .map(PaymentAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     if (paid.compareTo(booking.getAmountDueNow()) < 0) {
-      throw ApiException.badRequest("ChÃƒâ€ Ã‚Â°a Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ tiÃƒÂ¡Ã‚Â»Ã‚Ân thuÃƒÆ’Ã‚Âª vÃƒÆ’Ã‚Â  tiÃƒÂ¡Ã‚Â»Ã‚Ân cÃƒÂ¡Ã‚Â»Ã‚Âc thÃƒÂ¡Ã‚Â»Ã‚Â±c nhÃƒÂ¡Ã‚ÂºÃ‚Â­n. CÃƒÆ’Ã‚Â²n thiÃƒÂ¡Ã‚ÂºÃ‚Â¿u "
-          + booking.getAmountDueNow().subtract(paid).setScale(0, RoundingMode.HALF_UP).toPlainString() + "Ãƒâ€žÃ¢â‚¬Ëœ.");
+      throw ApiException.badRequest("Chưa đủ tiền thuê và tiền cọc thực nhận. Còn thiếu "
+          + booking.getAmountDueNow().subtract(paid).setScale(0, RoundingMode.HALF_UP).toPlainString() + "đ.");
     }
   }
 
@@ -262,21 +262,21 @@ public class FinanceSettlementService {
     bookingForUpdate(bookingId);
     BookingSettlement settlement = settlements.findById(bookingId).orElse(null);
     if (settlement != null && List.of("APPROVED", "REFUND_PENDING", "CLOSED").contains(settlement.getState())) {
-      throw ApiException.badRequest("Settlement Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t hoÃƒÂ¡Ã‚ÂºÃ‚Â·c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â³ng. PhÃƒÂ¡Ã‚ÂºÃ‚Â£i mÃƒÂ¡Ã‚Â»Ã…Â¸ lÃƒÂ¡Ã‚ÂºÃ‚Â¡i cÃƒÆ’Ã‚Â³ kiÃƒÂ¡Ã‚Â»Ã†â€™m soÃƒÆ’Ã‚Â¡t trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi tÃƒÂ¡Ã‚ÂºÃ‚Â¡o Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã‚Âu chÃƒÂ¡Ã‚Â»Ã¢â‚¬Â°nh.");
+      throw ApiException.badRequest("Settlement đã duyệt hoặc đóng. Phải mở lại có kiểm soát trước khi tạo điều chỉnh.");
     }
-    String normalizedType = required(type, "LoÃƒÂ¡Ã‚ÂºÃ‚Â¡i phÃƒÆ’Ã‚Â­").toUpperCase();
+    String normalizedType = required(type, "Loại phí").toUpperCase();
     if (!List.of("EXTENSION", "LATE_FEE", "MISSING", "DAMAGE", "CUSTOMER_COMPENSATION", "REFUND_ADJUSTMENT")
-        .contains(normalizedType)) throw ApiException.badRequest("LoÃƒÂ¡Ã‚ÂºÃ‚Â¡i phÃƒÆ’Ã‚Â­ khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+        .contains(normalizedType)) throw ApiException.badRequest("Loại phí không hợp lệ.");
     BigDecimal hold = value(holdAmount);
     if (hold.signum() > 0 && expectedResolutionAt == null) {
-      throw ApiException.badRequest("KhoÃƒÂ¡Ã‚ÂºÃ‚Â£n tÃƒÂ¡Ã‚ÂºÃ‚Â¡m giÃƒÂ¡Ã‚Â»Ã‚Â¯ phÃƒÂ¡Ã‚ÂºÃ‚Â£i cÃƒÆ’Ã‚Â³ hÃƒÂ¡Ã‚ÂºÃ‚Â¡n xÃƒÂ¡Ã‚Â»Ã‚Â­ lÃƒÆ’Ã‚Â½ dÃƒÂ¡Ã‚Â»Ã‚Â± kiÃƒÂ¡Ã‚ÂºÃ‚Â¿n.");
+      throw ApiException.badRequest("Khoản tạm giữ phải có hạn xử lý dự kiến.");
     }
     if (List.of("MISSING", "DAMAGE").contains(normalizedType)
         && (evidenceReference == null || evidenceReference.isBlank())) {
-      throw ApiException.badRequest("PhÃƒÆ’Ã‚Â­ thiÃƒÂ¡Ã‚ÂºÃ‚Â¿u/hÃƒâ€ Ã‚Â° hÃƒÂ¡Ã‚Â»Ã‚Âng phÃƒÂ¡Ã‚ÂºÃ‚Â£i cÃƒÆ’Ã‚Â³ bÃƒÂ¡Ã‚ÂºÃ‚Â±ng chÃƒÂ¡Ã‚Â»Ã‚Â©ng hoÃƒÂ¡Ã‚ÂºÃ‚Â·c biÃƒÆ’Ã‚Âªn bÃƒÂ¡Ã‚ÂºÃ‚Â£n tham chiÃƒÂ¡Ã‚ÂºÃ‚Â¿u.");
+      throw ApiException.badRequest("Phí thiếu/hư hỏng phải có bằng chứng hoặc biên bản tham chiếu.");
     }
     BookingCharge charge = charges.save(new BookingCharge(bookingId, normalize(assetId, null), normalizedType,
-        positive(amount, "SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â xuÃƒÂ¡Ã‚ÂºÃ‚Â¥t phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºn hÃƒâ€ Ã‚Â¡n 0."), hold, required(reason, "LÃƒÆ’Ã‚Â½ do"),
+        positive(amount, "Số tiền đề xuất phải lớn hơn 0."), hold, required(reason, "Lý do"),
         normalize(evidenceReference, ""), expectedResolutionAt, actor));
     outbox.save(event("CHARGE", charge.getId(), "CHARGE_PROPOSED", bookingId, "{}"));
     audit.record(actor, "FINANCE_CHARGE_PROPOSED", "BOOKING", bookingId, charge.getId());
@@ -287,13 +287,13 @@ public class FinanceSettlementService {
   @Transactional
   public BookingCharge reviewCharge(String chargeId, boolean approved, BigDecimal confirmedAmount, String reason,
       String actor) {
-    BookingCharge charge = charges.findById(chargeId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y khoÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÆ’Ã‚Â­."));
-    if (!"PROPOSED".equals(charge.getStatus())) throw ApiException.badRequest("KhoÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÆ’Ã‚Â­ Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c xÃƒÂ¡Ã‚Â»Ã‚Â­ lÃƒÆ’Ã‚Â½.");
+    BookingCharge charge = charges.findById(chargeId).orElseThrow(() -> ApiException.notFound("Không tìm thấy khoản phí."));
+    if (!"PROPOSED".equals(charge.getStatus())) throw ApiException.badRequest("Khoản phí đã được xử lý.");
     BookingSettlement currentSettlement = settlements.findById(charge.getBookingId()).orElse(null);
     if (currentSettlement != null && List.of("APPROVED", "REFUND_PENDING", "CLOSED").contains(currentSettlement.getState())) {
-      throw ApiException.badRequest("Settlement Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t hoÃƒÂ¡Ã‚ÂºÃ‚Â·c Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â³ng; khÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t thÃƒÆ’Ã‚Âªm khoÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÆ’Ã‚Â­ trÃƒÂ¡Ã‚Â»Ã‚Â±c tiÃƒÂ¡Ã‚ÂºÃ‚Â¿p.");
+      throw ApiException.badRequest("Settlement đã duyệt hoặc đóng; không thể duyệt thêm khoản phí trực tiếp.");
     }
-    charge.review(approved, confirmedAmount, actor, required(reason, "LÃƒÆ’Ã‚Â½ do duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t"));
+    charge.review(approved, confirmedAmount, actor, required(reason, "Lý do duyệt"));
     charges.save(charge);
     outbox.save(event("CHARGE", charge.getId(), approved ? "CHARGE_CONFIRMED" : "CHARGE_CANCELLED",
         charge.getBookingId(), "{}"));
@@ -311,7 +311,7 @@ public class FinanceSettlementService {
       BigDecimal recognizedRevenue = grossRentalRevenue(booking.getId(), booking.getTotalAmount());
       postSimpleDocument(booking.getId(), "RENTAL_REVENUE_RECOGNITION", recognizedRevenue,
           "UNEARNED_RENTAL_REVENUE", "RENTAL_REVENUE", "recognize:" + booking.getId(), actor,
-          "Ghi nhÃƒÂ¡Ã‚ÂºÃ‚Â­n doanh thu sau hoÃƒÆ’Ã‚Â n tÃƒÂ¡Ã‚ÂºÃ‚Â¥t trÃƒÂ¡Ã‚ÂºÃ‚Â£ mÃƒÆ’Ã‚Â¡y vÃƒÆ’Ã‚Â  kiÃƒÂ¡Ã‚Â»Ã†â€™m tra");
+          "Ghi nhận doanh thu sau hoàn tất trả máy và kiểm tra");
       allocateAssetRevenue(booking, recognizedRevenue, actor);
       outbox.save(event("BOOKING", booking.getId(), "RENTAL_REVENUE_RECOGNIZED", booking.getId(), "{}"));
     }
@@ -323,7 +323,7 @@ public class FinanceSettlementService {
   public BookingSettlement calculateSettlement(String bookingId, String actor) {
     Booking booking = bookingForUpdate(bookingId);
     if (!"COMPLETED".equals(booking.getState().name())) {
-      throw ApiException.badRequest("ChÃƒÂ¡Ã‚Â»Ã¢â‚¬Â° quyÃƒÂ¡Ã‚ÂºÃ‚Â¿t toÃƒÆ’Ã‚Â¡n sau khi hoÃƒÆ’Ã‚Â n tÃƒÂ¡Ã‚ÂºÃ‚Â¥t trÃƒÂ¡Ã‚ÂºÃ‚Â£ mÃƒÆ’Ã‚Â¡y vÃƒÆ’Ã‚Â  kiÃƒÂ¡Ã‚Â»Ã†â€™m tra.");
+      throw ApiException.badRequest("Chỉ quyết toán sau khi hoàn tất trả máy và kiểm tra.");
     }
     return completeService(booking, actor);
   }
@@ -364,7 +364,7 @@ public class FinanceSettlementService {
   @Transactional
   public RefundRequest approveSettlement(String bookingId, String method, String actor) {
     BookingSettlement settlement = recalculateSettlement(bookingId, actor);
-    if (!settlement.isRevenueRecognized()) throw ApiException.badRequest("ChÃƒâ€ Ã‚Â°a Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â§ Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã‚Âu kiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n ghi nhÃƒÂ¡Ã‚ÂºÃ‚Â­n doanh thu.");
+    if (!settlement.isRevenueRecognized()) throw ApiException.badRequest("Chưa đủ điều kiện ghi nhận doanh thu.");
     settlement.approve(actor);
     settlements.save(settlement);
     receivables.findByBookingIdOrderByCreatedAtAsc(bookingId).stream()
@@ -375,31 +375,31 @@ public class FinanceSettlementService {
           .filter(item -> List.of("APPROVED", "PROCESSING", "FAILED").contains(item.getState()))
           .findFirst().orElse(null);
       if (refund == null) refund = refunds.save(new RefundRequest(bookingId, settlement.getRefundDueNow(),
-          required(method, "PhÃƒâ€ Ã‚Â°Ãƒâ€ Ã‚Â¡ng thÃƒÂ¡Ã‚Â»Ã‚Â©c hoÃƒÆ’Ã‚Â n"), "refund:" + bookingId + ":" + settlement.getVersion(), actor));
+          required(method, "Phương thức hoàn"), "refund:" + bookingId + ":" + settlement.getVersion(), actor));
       outbox.save(event("REFUND", refund.getId(), "REFUND_APPROVED", bookingId, "{}"));
     }
-    audit.record(actor, "SETTLEMENT_APPROVED", "BOOKING", bookingId, refund == null ? "KhÃƒÆ’Ã‚Â´ng phÃƒÆ’Ã‚Â¡t sinh hoÃƒÆ’Ã‚Â n" : refund.getId());
+    audit.record(actor, "SETTLEMENT_APPROVED", "BOOKING", bookingId, refund == null ? "Không phát sinh hoàn" : refund.getId());
     return refund;
   }
 
   @Transactional
   public RefundRequest executeRefund(String refundId, String payoutReference, String idempotencyKey, String actor) {
-    RefundRequest refund = refunds.findForUpdate(refundId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u hoÃƒÆ’Ã‚Â n."));
+    RefundRequest refund = refunds.findForUpdate(refundId).orElseThrow(() -> ApiException.notFound("Không tìm thấy yêu cầu hoàn."));
     if ("SUCCEEDED".equals(refund.getState())) return refund;
     String key = requiredKey(idempotencyKey);
     FinancialDocument duplicate = documents.findByIdempotencyKey("document:" + key).orElse(null);
     if (duplicate != null) return refund;
     BookingSettlement settlement = settlements.findForUpdate(refund.getBookingId())
-        .orElseThrow(() -> ApiException.badRequest("Booking chÃƒâ€ Ã‚Â°a cÃƒÆ’Ã‚Â³ settlement."));
+        .orElseThrow(() -> ApiException.badRequest("Booking chưa có settlement."));
     if (refund.getAmount().compareTo(settlement.getRefundDueNow()) > 0) {
-      throw ApiException.badRequest("SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân hoÃƒÆ’Ã‚Â n vÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£t sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ dÃƒâ€ Ã‚Â° Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c phÃƒÆ’Ã‚Â©p hoÃƒÆ’Ã‚Â n.");
+      throw ApiException.badRequest("Số tiền hoàn vượt số dư được phép hoàn.");
     }
-    refund.succeed(required(payoutReference, "MÃƒÆ’Ã‚Â£ chi tiÃƒÂ¡Ã‚Â»Ã‚Ân/biÃƒÆ’Ã‚Âªn nhÃƒÂ¡Ã‚ÂºÃ‚Â­n"));
+    refund.succeed(required(payoutReference, "Mã chi tiền/biên nhận"));
     refunds.save(refund);
     settlement.markRefunded(refund.getAmount());
     settlements.save(settlement);
     postSimpleDocument(refund.getBookingId(), "REFUND_PAYOUT", refund.getAmount(),
-        "CUSTOMER_DEPOSIT_LIABILITY", "CASH_MAIN", key, actor, "HoÃƒÆ’Ã‚Â n cÃƒÂ¡Ã‚Â»Ã‚Âc " + refund.getId());
+        "CUSTOMER_DEPOSIT_LIABILITY", "CASH_MAIN", key, actor, "Hoàn cọc " + refund.getId());
     outbox.save(event("REFUND", refund.getId(), "REFUND_SUCCEEDED", refund.getBookingId(), "{}"));
     audit.record(actor, "REFUND_SUCCEEDED", "BOOKING", refund.getBookingId(), refund.getId());
     return refund;
@@ -408,20 +408,20 @@ public class FinanceSettlementService {
   @Transactional
   public BookingSettlement closeSettlement(String bookingId, String actor) {
     BookingSettlement settlement = settlements.findForUpdate(bookingId)
-        .orElseThrow(() -> ApiException.badRequest("Booking chÃƒâ€ Ã‚Â°a cÃƒÆ’Ã‚Â³ settlement."));
-    if (settlement.getTemporaryHoldAmount().signum() > 0) throw ApiException.badRequest("CÃƒÆ’Ã‚Â²n khoÃƒÂ¡Ã‚ÂºÃ‚Â£n tÃƒÂ¡Ã‚ÂºÃ‚Â¡m giÃƒÂ¡Ã‚Â»Ã‚Â¯ chÃƒâ€ Ã‚Â°a xÃƒÂ¡Ã‚Â»Ã‚Â­ lÃƒÆ’Ã‚Â½.");
-    if (settlement.getRefundDueNow().signum() > 0) throw ApiException.badRequest("CÃƒÆ’Ã‚Â²n sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân phÃƒÂ¡Ã‚ÂºÃ‚Â£i hoÃƒÆ’Ã‚Â n cho khÃƒÆ’Ã‚Â¡ch.");
+        .orElseThrow(() -> ApiException.badRequest("Booking chưa có settlement."));
+    if (settlement.getTemporaryHoldAmount().signum() > 0) throw ApiException.badRequest("Còn khoản tạm giữ chưa xử lý.");
+    if (settlement.getRefundDueNow().signum() > 0) throw ApiException.badRequest("Còn số tiền phải hoàn cho khách.");
     boolean pendingRefund = refunds.findByBookingIdOrderByRequestedAtAsc(bookingId).stream()
         .anyMatch(item -> !List.of("SUCCEEDED", "CANCELLED", "RETURNED").contains(item.getState()));
-    if (pendingRefund) throw ApiException.badRequest("CÃƒÆ’Ã‚Â²n yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u hoÃƒÆ’Ã‚Â n tiÃƒÂ¡Ã‚Â»Ã‚Ân chÃƒâ€ Ã‚Â°a hoÃƒÆ’Ã‚Â n tÃƒÂ¡Ã‚ÂºÃ‚Â¥t.");
+    if (pendingRefund) throw ApiException.badRequest("Còn yêu cầu hoàn tiền chưa hoàn tất.");
     boolean unresolvedCharge = charges.findByBookingIdOrderByCreatedAtAsc(bookingId).stream()
         .anyMatch(item -> "PROPOSED".equals(item.getStatus()));
-    if (unresolvedCharge) throw ApiException.badRequest("CÃƒÆ’Ã‚Â²n khoÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÆ’Ã‚Â­ Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã‚Â xuÃƒÂ¡Ã‚ÂºÃ‚Â¥t chÃƒâ€ Ã‚Â°a duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t.");
+    if (unresolvedCharge) throw ApiException.badRequest("Còn khoản phí đề xuất chưa duyệt.");
     boolean unformalizedDebt = receivables.findByBookingIdOrderByCreatedAtAsc(bookingId).stream()
         .anyMatch(item -> "OPEN".equals(item.getState()));
-    if (unformalizedDebt) throw ApiException.badRequest("CÃƒÆ’Ã‚Â´ng nÃƒÂ¡Ã‚Â»Ã‚Â£ phÃƒÂ¡Ã‚ÂºÃ‚Â£i Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c chuyÃƒÂ¡Ã‚Â»Ã†â€™n thÃƒÆ’Ã‚Â nh hÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“ sÃƒâ€ Ã‚Â¡ nÃƒÂ¡Ã‚Â»Ã‚Â£ chÃƒÆ’Ã‚Â­nh thÃƒÂ¡Ã‚Â»Ã‚Â©c.");
+    if (unformalizedDebt) throw ApiException.badRequest("Công nợ phải được chuyển thành hồ sơ nợ chính thức.");
     if (findings.existsByBookingIdAndCodeAndState(bookingId, "CRITICAL_INVARIANT", "OPEN")) {
-      throw ApiException.badRequest("Booking cÃƒÆ’Ã‚Â²n lÃƒÂ¡Ã‚Â»Ã¢â‚¬â€i Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœi soÃƒÆ’Ã‚Â¡t mÃƒÂ¡Ã‚Â»Ã‚Â©c Critical.");
+      throw ApiException.badRequest("Booking còn lỗi đối soát mức Critical.");
     }
     assertAssetAllocationBalanced(bookingId, settlement.getRecognizedRevenue());
     settlement.close();
@@ -453,8 +453,8 @@ public class FinanceSettlementService {
     BigDecimal denominator = bases.stream().map(AllocationBasis::weight).reduce(BigDecimal.ZERO, BigDecimal::add);
     if (denominator.signum() == 0) {
       createFinding(booking.getId(), "ZERO_ALLOCATION_BASIS", "CRITICAL",
-          "KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ doanh thu vÃƒÆ’Ã‚Â¬ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ng giÃƒÆ’Ã‚Â¡ niÃƒÆ’Ã‚Âªm yÃƒÂ¡Ã‚ÂºÃ‚Â¿t snapshot bÃƒÂ¡Ã‚ÂºÃ‚Â±ng 0.");
-      throw ApiException.badRequest("Snapshot giÃƒÆ’Ã‚Â¡ niÃƒÆ’Ã‚Âªm yÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚ÂºÃ‚Â±ng 0; khÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ doanh thu tÃƒÂ¡Ã‚Â»Ã‚Â± Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢ng.");
+          "Không thể phân bổ doanh thu vì tổng giá niêm yết snapshot bằng 0.");
+      throw ApiException.badRequest("Snapshot giá niêm yết bằng 0; không thể phân bổ doanh thu tự động.");
     }
     BigDecimal remaining = recognizedRevenue;
     List<AssetRevenueAllocation> result = new ArrayList<>();
@@ -479,8 +479,8 @@ public class FinanceSettlementService {
         .map(AssetRevenueAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     if (actual.compareTo(value(expected)) != 0) {
       createFinding(bookingId, "ASSET_ALLOCATION_IMBALANCE", "CRITICAL",
-          "TÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ng phÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ " + actual + " khÃƒÆ’Ã‚Â´ng bÃƒÂ¡Ã‚ÂºÃ‚Â±ng doanh thu " + expected + ".");
-      throw ApiException.badRequest("PhÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ doanh thu theo thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ chÃƒâ€ Ã‚Â°a cÃƒÆ’Ã‚Â¢n.");
+          "Tổng phân bổ " + actual + " không bằng doanh thu " + expected + ".");
+      throw ApiException.badRequest("Phân bổ doanh thu theo thiết bị chưa cân.");
     }
   }
 
@@ -492,16 +492,16 @@ public class FinanceSettlementService {
     OperationalExpense duplicate = expenses.findBySourceFingerprint(fingerprint).orElse(null);
     if (duplicate != null) return duplicate;
     if (bookingId != null && !bookingId.isBlank() && !bookings.existsById(bookingId.trim())) {
-      throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking gÃƒÂ¡Ã‚ÂºÃ‚Â¯n vÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi chi phÃƒÆ’Ã‚Â­.");
+      throw ApiException.notFound("Không tìm thấy booking gắn với chi phí.");
     }
     if (assetId != null && !assetId.isBlank() && !inventoryAssets.existsById(assetId.trim())) {
-      throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y serial mÃƒÆ’Ã‚Â¡y gÃƒÂ¡Ã‚ÂºÃ‚Â¯n vÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi chi phÃƒÆ’Ã‚Â­.");
+      throw ApiException.notFound("Không tìm thấy serial máy gắn với chi phí.");
     }
     OperationalExpense expense = expenses.save(new OperationalExpense(normalize(bookingId, null),
-        normalize(assetId, null), "MAIN", required(category, "NhÃƒÆ’Ã‚Â³m chi phÃƒÆ’Ã‚Â­").toUpperCase(),
-        positive(amount, "SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân chi phÃƒÆ’Ã‚Â­ phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºn hÃƒâ€ Ã‚Â¡n 0."), required(vendorName, "NhÃƒÆ’Ã‚Â  cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p"),
-        required(invoiceReference, "SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ hÃƒÆ’Ã‚Â³a Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â¡n/chÃƒÂ¡Ã‚Â»Ã‚Â©ng tÃƒÂ¡Ã‚Â»Ã‚Â«"), fingerprint, required(reason, "LÃƒÆ’Ã‚Â½ do"),
-        required(evidenceReference, "BÃƒÂ¡Ã‚ÂºÃ‚Â±ng chÃƒÂ¡Ã‚Â»Ã‚Â©ng"), actor));
+        normalize(assetId, null), "MAIN", required(category, "Nhóm chi phí").toUpperCase(),
+        positive(amount, "Số tiền chi phí phải lớn hơn 0."), required(vendorName, "Nhà cung cấp"),
+        required(invoiceReference, "Số hóa đơn/chứng từ"), fingerprint, required(reason, "Lý do"),
+        required(evidenceReference, "Bằng chứng"), actor));
     outbox.save(event("EXPENSE", expense.getId(), "EXPENSE_SUBMITTED", expense.getId(), "{}"));
     audit.record(actor, "EXPENSE_SUBMITTED", "EXPENSE", expense.getId(), expense.getSourceFingerprint());
     return expense;
@@ -510,7 +510,7 @@ public class FinanceSettlementService {
   @Transactional
   public OperationalExpense approveExpense(String expenseId, String actor) {
     OperationalExpense expense = expenses.findById(expenseId)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y chi phÃƒÆ’Ã‚Â­."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy chi phí."));
     if (!"SUBMITTED".equals(expense.getState())) return expense;
     assertPostingPeriodOpen(LocalDateTime.now());
     expense.approve(actor);
@@ -531,16 +531,16 @@ public class FinanceSettlementService {
     String key = requiredKey(idempotencyKey);
     FinancialDocument duplicate = documents.findByIdempotencyKey("document:" + key).orElse(null);
     OperationalExpense expense = expenses.findById(expenseId)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y chi phÃƒÆ’Ã‚Â­."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy chi phí."));
     if (duplicate != null) return expense;
     if (!List.of("APPROVED", "PARTIALLY_PAID").contains(expense.getState())) {
-      throw ApiException.badRequest("Chi phÃƒÆ’Ã‚Â­ phÃƒÂ¡Ã‚ÂºÃ‚Â£i Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c duyÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi chi tiÃƒÂ¡Ã‚Â»Ã‚Ân.");
+      throw ApiException.badRequest("Chi phí phải được duyệt trước khi chi tiền.");
     }
-    BigDecimal paid = positive(amount, "SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân chi phÃƒÂ¡Ã‚ÂºÃ‚Â£i lÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºn hÃƒâ€ Ã‚Â¡n 0.");
+    BigDecimal paid = positive(amount, "Số tiền chi phải lớn hơn 0.");
     BigDecimal outstanding = expense.getAmount().subtract(expense.getPaidAmount());
-    if (paid.compareTo(outstanding) > 0) throw ApiException.badRequest("SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ tiÃƒÂ¡Ã‚Â»Ã‚Ân chi vÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£t cÃƒÆ’Ã‚Â´ng nÃƒÂ¡Ã‚Â»Ã‚Â£ nhÃƒÆ’Ã‚Â  cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p.");
+    if (paid.compareTo(outstanding) > 0) throw ApiException.badRequest("Số tiền chi vượt công nợ nhà cung cấp.");
     postSimpleDocument(expense.getBookingId(), "EXPENSE_PAYMENT", paid, "VENDOR_PAYABLE", "CASH_MAIN",
-        key, actor, "Chi nhÃƒÆ’Ã‚Â  cung cÃƒÂ¡Ã‚ÂºÃ‚Â¥p " + required(payoutReference, "MÃƒÆ’Ã‚Â£ chi tiÃƒÂ¡Ã‚Â»Ã‚Ân"));
+        key, actor, "Chi nhà cung cấp " + required(payoutReference, "Mã chi tiền"));
     expense.pay(paid);
     expenses.save(expense);
     outbox.save(event("EXPENSE", expense.getId(), "EXPENSE_PAID", expense.getId(),
@@ -575,14 +575,14 @@ public class FinanceSettlementService {
     FinancialDocument duplicate = documents.findByIdempotencyKey(key).orElse(null);
     if (duplicate != null) return duplicate;
     FinancialDocument original = documents.findById(documentId)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y chÃƒÂ¡Ã‚Â»Ã‚Â©ng tÃƒÂ¡Ã‚Â»Ã‚Â«."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy chứng từ."));
     if (!"POSTED".equals(original.getStatus()) || documents.existsByReversalOfDocumentId(documentId)) {
-      throw ApiException.badRequest("ChÃƒÂ¡Ã‚Â»Ã‚Â©ng tÃƒÂ¡Ã‚Â»Ã‚Â« Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â£o hoÃƒÂ¡Ã‚ÂºÃ‚Â·c khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n ÃƒÂ¡Ã‚Â»Ã…Â¸ trÃƒÂ¡Ã‚ÂºÃ‚Â¡ng thÃƒÆ’Ã‚Â¡i POSTED.");
+      throw ApiException.badRequest("Chứng từ đã được đảo hoặc không còn ở trạng thái POSTED.");
     }
     assertPostingPeriodOpen(LocalDateTime.now());
     FinancialDocument reversal = new FinancialDocument("DOC-" + compactId(), original.getBookingId(),
         "REVERSAL_" + original.getType(), original.getTotalDebit(), original.getCorrelationId(), key, actor,
-        required(reason, "LÃƒÆ’Ã‚Â½ do Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚ÂºÃ‚Â£o chÃƒÂ¡Ã‚Â»Ã‚Â©ng tÃƒÂ¡Ã‚Â»Ã‚Â«"));
+        required(reason, "Lý do đảo chứng từ"));
     reversal.linkReversal(original.getId());
     documents.save(reversal);
     List<FinancialLedgerEntry> reversedEntries = ledger.findByDocumentIdOrderByIdAsc(documentId).stream()
@@ -612,19 +612,19 @@ public class FinanceSettlementService {
   public FinancialPeriod updatePeriod(String periodId, String state, String actor) {
     YearMonth month;
     try { month = YearMonth.parse(periodId); }
-    catch (Exception exception) { throw ApiException.badRequest("KÃƒÂ¡Ã‚Â»Ã‚Â³ tÃƒÆ’Ã‚Â i chÃƒÆ’Ã‚Â­nh phÃƒÂ¡Ã‚ÂºÃ‚Â£i cÃƒÆ’Ã‚Â³ dÃƒÂ¡Ã‚ÂºÃ‚Â¡ng YYYY-MM."); }
+    catch (Exception exception) { throw ApiException.badRequest("Kỳ tài chính phải có dạng YYYY-MM."); }
     FinancialPeriod period = periods.findById(periodId).orElseGet(() -> new FinancialPeriod(periodId,
         month.atDay(1), month.atEndOfMonth()));
-    switch (required(state, "TrÃƒÂ¡Ã‚ÂºÃ‚Â¡ng thÃƒÆ’Ã‚Â¡i kÃƒÂ¡Ã‚Â»Ã‚Â³").toUpperCase()) {
+    switch (required(state, "Trạng thái kỳ").toUpperCase()) {
       case "OPEN" -> period.reopen();
       case "SOFT_LOCKED" -> period.softLock(actor);
       case "HARD_LOCKED" -> {
         if (findings.countBySeverityAndState("CRITICAL", "OPEN") > 0) {
-          throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ khÃƒÆ’Ã‚Â³a cÃƒÂ¡Ã‚Â»Ã‚Â©ng khi cÃƒÆ’Ã‚Â²n lÃƒÂ¡Ã‚Â»Ã¢â‚¬â€i Ãƒâ€žÃ¢â‚¬ËœÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœi soÃƒÆ’Ã‚Â¡t Critical.");
+          throw ApiException.badRequest("Không thể khóa cứng khi còn lỗi đối soát Critical.");
         }
         period.hardLock(actor);
       }
-      default -> throw ApiException.badRequest("TrÃƒÂ¡Ã‚ÂºÃ‚Â¡ng thÃƒÆ’Ã‚Â¡i kÃƒÂ¡Ã‚Â»Ã‚Â³ khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+      default -> throw ApiException.badRequest("Trạng thái kỳ không hợp lệ.");
     }
     periods.save(period);
     audit.record(actor, "FINANCIAL_PERIOD_" + period.getState(), "FINANCIAL_PERIOD", periodId, "");
@@ -642,7 +642,7 @@ public class FinanceSettlementService {
     FinancialPeriod period = periods.findById(id).orElseGet(() -> periods.save(new FinancialPeriod(id,
         month.atDay(1), month.atEndOfMonth())));
     if (!"OPEN".equals(period.getState())) {
-      throw ApiException.badRequest("KÃƒÂ¡Ã‚Â»Ã‚Â³ tÃƒÆ’Ã‚Â i chÃƒÆ’Ã‚Â­nh " + id + " Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ khÃƒÆ’Ã‚Â³a; hÃƒÆ’Ã‚Â£y ghi Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã‚Âu chÃƒÂ¡Ã‚Â»Ã¢â‚¬Â°nh ÃƒÂ¡Ã‚Â»Ã…Â¸ kÃƒÂ¡Ã‚Â»Ã‚Â³ Ãƒâ€žÃ¢â‚¬Ëœang mÃƒÂ¡Ã‚Â»Ã…Â¸.");
+      throw ApiException.badRequest("Kỳ tài chính " + id + " đã khóa; hãy ghi điều chỉnh ở kỳ đang mở.");
     }
   }
 
@@ -677,7 +677,7 @@ public class FinanceSettlementService {
 
   @Transactional(readOnly = true)
   public BookingFinanceView bookingView(String bookingId) {
-    if (!bookings.existsById(bookingId)) throw ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking.");
+    if (!bookings.existsById(bookingId)) throw ApiException.notFound("Không tìm thấy booking.");
     return new BookingFinanceView(snapshots.findById(bookingId).orElse(null),
         snapshotLines.findByBookingIdOrderByIdAsc(bookingId), payments.findByBookingIdOrderByReceivedAtAsc(bookingId),
         paymentAllocations.findByBookingIdOrderByAllocatedAtAsc(bookingId), charges.findByBookingIdOrderByCreatedAtAsc(bookingId),
@@ -735,12 +735,12 @@ public class FinanceSettlementService {
     if (settlement == null) return List.of();
     if ("CLOSED".equals(settlement.getState()) && (settlement.getRefundDueNow().signum() > 0
         || settlement.getTemporaryHoldAmount().signum() > 0)) {
-      createFinding(bookingId, "CRITICAL_INVARIANT", "CRITICAL", "Settlement Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â³ng nhÃƒâ€ Ã‚Â°ng cÃƒÆ’Ã‚Â²n nghÃƒâ€žÃ‚Â©a vÃƒÂ¡Ã‚Â»Ã‚Â¥ tiÃƒÂ¡Ã‚Â»Ã‚Ân.");
+      createFinding(bookingId, "CRITICAL_INVARIANT", "CRITICAL", "Settlement đã đóng nhưng còn nghĩa vụ tiền.");
     }
     BigDecimal allocated = assetAllocations.findByBookingIdOrderByProductIdAscAssetIdAsc(bookingId).stream()
         .map(AssetRevenueAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     if (settlement.isRevenueRecognized() && allocated.compareTo(settlement.getRecognizedRevenue()) != 0) {
-      createFinding(bookingId, "ASSET_ALLOCATION_IMBALANCE", "CRITICAL", "PhÃƒÆ’Ã‚Â¢n bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ doanh thu theo asset bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡ch.");
+      createFinding(bookingId, "ASSET_ALLOCATION_IMBALANCE", "CRITICAL", "Phân bổ doanh thu theo asset bị lệch.");
     }
     return findings.findByBookingIdAndStateOrderByDetectedAtAsc(bookingId, "OPEN");
   }
@@ -786,7 +786,7 @@ public class FinanceSettlementService {
         .subtract(confirmedChargeTotal(bookingId, "REFUND_ADJUSTMENT")).max(BigDecimal.ZERO);
   }
   private Booking bookingForUpdate(String id) {
-    return bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y booking."));
+    return bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
   }
   private FinanceOutboxEvent event(String aggregateType, String aggregateId, String eventType,
       String correlationId, String payload) {
@@ -798,11 +798,11 @@ public class FinanceSettlementService {
     return value.setScale(0, RoundingMode.HALF_UP);
   }
   private static String required(String value, String label) {
-    if (value == null || value.isBlank()) throw ApiException.badRequest(label + " lÃƒÆ’Ã‚Â  bÃƒÂ¡Ã‚ÂºÃ‚Â¯t buÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢c.");
+    if (value == null || value.isBlank()) throw ApiException.badRequest(label + " là bắt buộc.");
     return value.trim();
   }
   private static String requiredKey(String value) {
-    if (value == null || value.isBlank()) throw ApiException.badRequest("Idempotency key lÃƒÆ’Ã‚Â  bÃƒÂ¡Ã‚ÂºÃ‚Â¯t buÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢c.");
+    if (value == null || value.isBlank()) throw ApiException.badRequest("Idempotency key là bắt buộc.");
     return value.trim();
   }
   private static String normalize(String value, String fallback) {

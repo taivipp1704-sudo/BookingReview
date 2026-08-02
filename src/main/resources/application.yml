@@ -4,6 +4,10 @@ server:
   error:
     include-message: never
   servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: false
     session:
       timeout: 15m
       cookie:
@@ -79,7 +83,32 @@ claritycam:
     bucket: ${R2_BUCKET:}
     access-key-id: ${R2_ACCESS_KEY_ID:}
     secret-access-key: ${R2_SECRET_ACCESS_KEY:}
+  monitoring:
+    alert-webhook-url: ${ALERT_WEBHOOK_URL:}
+    alert-cooldown-minutes: ${ALERT_COOLDOWN_MINUTES:15}
+    database-check-ms: ${DATABASE_HEALTH_CHECK_MS:60000}
+  rate-limit:
+    cleanup-ms: ${RATE_LIMIT_CLEANUP_MS:600000}
 
 spring.servlet.multipart:
   max-file-size: 5MB
   max-request-size: 11MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    defaults:
+      enabled: true
+
+info:
+  app:
+    name: AMY Digital preview API
+    booking-enabled: ${BOOKING_ENABLED:false}

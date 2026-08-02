@@ -17,7 +17,7 @@ public class PublicFeatureController {
   @GetMapping
   FeatureResponse features() {
     return new FeatureResponse(features.isBookingEnabled(), features.isEarlyAccessRegistrationEnabled(),
-        features.isEarlyAccessRegistrationEnabled() ? "WAITLIST" : "CLOSED");
+        features.isEarlyAccessRegistrationEnabled() ? "ACCOUNT_PREVIEW" : "CLOSED");
   }
 
   public record FeatureResponse(boolean bookingEnabled, boolean earlyAccessRegistrationEnabled,

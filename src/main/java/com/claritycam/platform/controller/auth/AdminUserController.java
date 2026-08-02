@@ -49,7 +49,7 @@ public class AdminUserController {
   UserResponse create(@Valid @RequestBody CreateUserRequest request, Authentication authentication) {
     String email = request.email().trim().toLowerCase();
     if (users.findByEmailIgnoreCase(email).isPresent()) {
-      throw ApiException.badRequest("Email nhÃƒÆ’Ã‚Â¢n sÃƒÂ¡Ã‚Â»Ã‚Â± Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+      throw ApiException.badRequest("Email nhân sự đã tồn tại.");
     }
     AdminUser saved = users.save(new AdminUser("USR-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase(),
         email, passwordEncoder.encode(request.password()), request.role(), true));
@@ -60,9 +60,9 @@ public class AdminUserController {
   @PatchMapping("/{id}")
   UserResponse update(@PathVariable String id, @Valid @RequestBody UpdateUserRequest request,
       Authentication authentication) {
-    AdminUser user = users.findById(id).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y tÃƒÆ’Ã‚Â i khoÃƒÂ¡Ã‚ÂºÃ‚Â£n nhÃƒÆ’Ã‚Â¢n sÃƒÂ¡Ã‚Â»Ã‚Â±."));
+    AdminUser user = users.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy tài khoản nhân sự."));
     if (user.getEmail().equalsIgnoreCase(authentication.getName()) && !request.active()) {
-      throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ tÃƒÂ¡Ã‚Â»Ã‚Â± khÃƒÆ’Ã‚Â³a tÃƒÆ’Ã‚Â i khoÃƒÂ¡Ã‚ÂºÃ‚Â£n Ãƒâ€žÃ¢â‚¬Ëœang Ãƒâ€žÃ¢â‚¬ËœÃƒâ€žÃ†â€™ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p.");
+      throw ApiException.badRequest("Không thể tự khóa tài khoản đang đăng nhập.");
     }
     String passwordHash = request.password() == null || request.password().isBlank()
         ? null : passwordEncoder.encode(request.password());

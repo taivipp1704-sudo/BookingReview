@@ -66,29 +66,29 @@ public class OtpService {
     if (smsDelivery.isEnabled()) {
       smsDelivery.sendOtp(normalizedPhone, code, expiryMinutes, challengeId);
     } else if (!exposeDemoCode) {
-      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "DÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ch vÃƒÂ¡Ã‚Â»Ã‚Â¥ gÃƒÂ¡Ã‚Â»Ã‚Â­i SMS OTP chÃƒâ€ Ã‚Â°a Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c cÃƒÂ¡Ã‚ÂºÃ‚Â¥u hÃƒÆ’Ã‚Â¬nh.");
+      throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Dịch vụ gửi SMS OTP chưa được cấu hình.");
     }
     return new RequestedOtp(challenge.getId(), expiresAt, exposeDemoCode ? code : null);
   }
 
   public VerifiedOtp verify(String challengeId, String phone, String code, OtpPurpose purpose, String remoteAddress) {
     OtpChallenge challenge = challenges.findById(challengeId)
-        .orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c."));
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy yêu cầu xác thực."));
     rateLimit.check("otp:verify:" + challengeId, 5, Duration.ofMinutes(15));
     rateLimit.check("otp:verify-ip:" + remoteAddress, 20, Duration.ofMinutes(15));
     if (challenge.getPurpose() != purpose || !challenge.getPhoneHash().equals(sha256(normalizePhone(phone)))) {
-      throw ApiException.forbidden("ThÃƒÆ’Ã‚Â´ng tin xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c khÃƒÆ’Ã‚Â´ng khÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºp.");
+      throw ApiException.forbidden("Thông tin xác thực không khớp.");
     }
     if (challenge.isExpired()) {
-      throw ApiException.badRequest("MÃƒÆ’Ã‚Â£ OTP Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ hÃƒÂ¡Ã‚ÂºÃ‚Â¿t hÃƒÂ¡Ã‚ÂºÃ‚Â¡n. Vui lÃƒÆ’Ã‚Â²ng yÃƒÆ’Ã‚Âªu cÃƒÂ¡Ã‚ÂºÃ‚Â§u mÃƒÆ’Ã‚Â£ mÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi.");
+      throw ApiException.badRequest("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.");
     }
     if (challenge.getVerifiedAt() != null || challenge.getAttempts() >= 5) {
-      throw ApiException.badRequest("MÃƒÆ’Ã‚Â£ OTP nÃƒÆ’Ã‚Â y khÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â²n hiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u lÃƒÂ¡Ã‚Â»Ã‚Â±c.");
+      throw ApiException.badRequest("Mã OTP này không còn hiệu lực.");
     }
     if (!passwordEncoder.matches(code, challenge.getCodeHash())) {
       challenge.incrementAttempts();
       challenges.save(challenge);
-      throw ApiException.badRequest("MÃƒÆ’Ã‚Â£ OTP khÃƒÆ’Ã‚Â´ng chÃƒÆ’Ã‚Â­nh xÃƒÆ’Ã‚Â¡c.");
+      throw ApiException.badRequest("Mã OTP không chính xác.");
     }
     String verificationToken = randomToken();
     challenge.verify(passwordEncoder.encode(verificationToken));
@@ -104,7 +104,7 @@ public class OtpService {
         .stream()
         .filter(candidate -> passwordEncoder.matches(verificationToken, candidate.getVerificationTokenHash()))
         .findFirst()
-        .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "BÃƒÂ¡Ã‚ÂºÃ‚Â¡n cÃƒÂ¡Ã‚ÂºÃ‚Â§n xÃƒÆ’Ã‚Â¡c thÃƒÂ¡Ã‚Â»Ã‚Â±c OTP trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc khi tiÃƒÂ¡Ã‚ÂºÃ‚Â¿p tÃƒÂ¡Ã‚Â»Ã‚Â¥c."));
+        .orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Bạn cần xác thực OTP trước khi tiếp tục."));
     challenge.consume();
     challenges.save(challenge);
   }
@@ -121,7 +121,7 @@ public class OtpService {
       digits = "0" + digits.substring(2);
     }
     if (!digits.matches("0\\d{9}")) {
-      throw ApiException.badRequest("SÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n thoÃƒÂ¡Ã‚ÂºÃ‚Â¡i ViÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡t Nam khÃƒÆ’Ã‚Â´ng hÃƒÂ¡Ã‚Â»Ã‚Â£p lÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡.");
+      throw ApiException.badRequest("Số điện thoại Việt Nam không hợp lệ.");
     }
     return digits;
   }

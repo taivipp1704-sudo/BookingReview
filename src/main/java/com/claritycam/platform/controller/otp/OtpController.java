@@ -49,7 +49,7 @@ public class OtpController {
         : (String) request.getSession(false).getAttribute(CustomerAccountService.SESSION_PHONE);
     String owner = customerAccounts.require(sessionPhone).getPhoneNormalized();
     if (!owner.equals(OtpService.normalizePhone(phone))) {
-      throw ApiException.forbidden("TÃƒÆ’Ã‚Â i khoÃƒÂ¡Ã‚ÂºÃ‚Â£n Ãƒâ€žÃ¢â‚¬ËœÃƒâ€žÃ†â€™ng nhÃƒÂ¡Ã‚ÂºÃ‚Â­p khÃƒÆ’Ã‚Â´ng khÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºp vÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ Ãƒâ€žÃ¢â‚¬ËœiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n thoÃƒÂ¡Ã‚ÂºÃ‚Â¡i nhÃƒÂ¡Ã‚ÂºÃ‚Â­n OTP.");
+      throw ApiException.forbidden("Tài khoản đăng nhập không khớp với số điện thoại nhận OTP.");
     }
   }
 

@@ -55,13 +55,13 @@ public class AdminInventoryController {
   @Transactional
   InventoryAsset createAsset(@Valid @RequestBody AssetCreateRequest request, Authentication authentication) {
     if (assets.existsById(request.serialId())) {
-      throw ApiException.badRequest("Serial nÃƒÆ’Ã‚Â y Ãƒâ€žÃ¢â‚¬ËœÃƒÆ’Ã‚Â£ tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i.");
+      throw ApiException.badRequest("Serial này đã tồn tại.");
     }
     requireProduct(request.productId());
     InventoryAsset asset = assets.save(new InventoryAsset(request.serialId().trim(), request.productId().trim(),
         request.status(), 0, LocalDate.now(), 0));
     ledger.append(null, asset.getProductId(), asset.getSerialId(), "ASSET_RECEIPT", 1, null,
-        "NhÃƒÂ¡Ã‚ÂºÃ‚Â­p serial mÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºi", authentication.getName());
+        "Nhập serial mới", authentication.getName());
     audit.record(authentication.getName(), "INVENTORY_ASSET_CREATED", "ASSET", asset.getSerialId(), asset.getProductId());
     return asset;
   }
@@ -70,7 +70,7 @@ public class AdminInventoryController {
   @Transactional
   InventoryAsset updateAssetStatus(@PathVariable String serialId, @Valid @RequestBody AssetStatusRequest request,
       Authentication authentication) {
-    InventoryAsset asset = assets.findById(serialId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y serial thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹."));
+    InventoryAsset asset = assets.findById(serialId).orElseThrow(() -> ApiException.notFound("Không tìm thấy serial thiết bị."));
     String previousStatus = asset.getStatus();
     asset.updateStatus(request.status());
     InventoryAsset saved = assets.save(asset);
@@ -84,12 +84,12 @@ public class AdminInventoryController {
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional
   void deleteAsset(@PathVariable String serialId, Authentication authentication) {
-    InventoryAsset asset = assets.findById(serialId).orElseThrow(() -> ApiException.notFound("KhÃƒÆ’Ã‚Â´ng tÃƒÆ’Ã‚Â¬m thÃƒÂ¡Ã‚ÂºÃ‚Â¥y serial thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹."));
-    if ("IN_USE".equals(asset.getStatus())) throw ApiException.badRequest("KhÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ xÃƒÆ’Ã‚Â³a thiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ Ãƒâ€žÃ¢â‚¬Ëœang Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c thuÃƒÆ’Ã‚Âª.");
+    InventoryAsset asset = assets.findById(serialId).orElseThrow(() -> ApiException.notFound("Không tìm thấy serial thiết bị."));
+    if ("IN_USE".equals(asset.getStatus())) throw ApiException.badRequest("Không thể xóa thiết bị đang được thuê.");
     asset.updateStatus("RETIRED");
     assets.save(asset);
     ledger.append(null, asset.getProductId(), asset.getSerialId(), "ASSET_RETIRED", -1, null,
-        "LÃƒâ€ Ã‚Â°u trÃƒÂ¡Ã‚Â»Ã‚Â¯ serial, khÃƒÆ’Ã‚Â´ng xÃƒÆ’Ã‚Â³a dÃƒÂ¡Ã‚Â»Ã‚Â¯ liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u", authentication.getName());
+        "Lưu trữ serial, không xóa dữ liệu", authentication.getName());
     audit.record(authentication.getName(), "INVENTORY_ASSET_RETIRED", "ASSET", serialId, asset.getProductId());
   }
 
@@ -100,7 +100,7 @@ public class AdminInventoryController {
     requireProduct(productId);
     StockItem item = stock.findById(productId).orElseGet(() -> new StockItem(productId, 0, 0));
     if (request.totalQty() < item.getInUseQty()) {
-      throw ApiException.badRequest("TÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¢ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n kho khÃƒÆ’Ã‚Â´ng thÃƒÂ¡Ã‚Â»Ã†â€™ thÃƒÂ¡Ã‚ÂºÃ‚Â¥p hÃƒâ€ Ã‚Â¡n sÃƒÂ¡Ã‚Â»Ã¢â‚¬Ëœ lÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£ng Ãƒâ€žÃ¢â‚¬Ëœang Ãƒâ€žÃ¢â‚¬ËœÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã‚Â£c thuÃƒÆ’Ã‚Âª.");
+      throw ApiException.badRequest("Tổng tồn kho không thể thấp hơn số lượng đang được thuê.");
     }
     int delta = request.totalQty() - item.getTotalQty();
     item.updateTotalQty(request.totalQty());
@@ -118,7 +118,7 @@ public class AdminInventoryController {
 
   private void requireProduct(String productId) {
     if (!products.existsById(productId)) {
-      throw ApiException.notFound("ThiÃƒÂ¡Ã‚ÂºÃ‚Â¿t bÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¹ khÃƒÆ’Ã‚Â´ng tÃƒÂ¡Ã‚Â»Ã¢â‚¬Å“n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i trong danh mÃƒÂ¡Ã‚Â»Ã‚Â¥c.");
+      throw ApiException.notFound("Thiết bị không tồn tại trong danh mục.");
     }
   }
 

@@ -49,7 +49,7 @@ public class ApprovedCatalogImportService {
             + dataRows(root, "assetCodeRules"),
         dataRows(root, "compensationDrafts") + dataRows(root, "damageFeeDrafts")
             + dataRows(root, "policyDrafts"),
-        "Các sản phẩm mới được để inactive; chính sách tài chính chỉ được lưu DRAFT.");
+        "Sản phẩm được mở ở chế độ xem trước; chính sách tài chính chỉ được lưu DRAFT và booking vẫn bị khóa.");
   }
 
   @Transactional
@@ -69,7 +69,7 @@ public class ApprovedCatalogImportService {
     draftRecords += importReferences(root, "compensationDrafts", "COMPENSATION", "Mã nhóm");
     draftRecords += importReferences(root, "damageFeeDrafts", "DAMAGE_FEE", "Tình trạng cụ thể");
     draftRecords += importReferences(root, "policyDrafts", "POLICY", "Rule_ID");
-    return new ImportResult(importedProducts, importedAssets, draftRecords, "DRAFT_REVIEW_REQUIRED");
+    return new ImportResult(importedProducts, importedAssets, draftRecords, "ACTIVE_PREVIEW");
   }
 
   private int importProducts(JsonNode tableNode, Map<String, Map<String, String>> configs) {
@@ -77,11 +77,21 @@ public class ApprovedCatalogImportService {
     for (Map<String, String> row : table(tableNode)) {
       String name = row.get("Tên máy");
       String id = "CAM-" + slug(name);
-      if (products.existsById(id)) continue;
       Map<String, String> config = configs.getOrDefault(name, Map.of());
+      Optional<Product> existing = products.findById(id);
+      if (existing.isPresent()) {
+        Product product = existing.get();
+        if (!product.isActive()) {
+          product.activateForPreview();
+          products.save(product);
+          count++;
+        }
+        continue;
+      }
       Product product = new Product(id, "IMPORT", name, brand(name),
-          config.getOrDefault("Nhóm thiết bị", "Camera"), money(row, "Giá 1 ngày"), false, false, "",
+          config.getOrDefault("Nhóm thiết bị", "Camera"), money(row, "Giá 1 ngày"), false, true, "",
           config.getOrDefault("Ống kính tiêu chuẩn", "Đang cập nhật"), "SERIALIZED", slug(name));
+      product.activateForPreview();
       product.configurePricing(BigDecimal.ZERO, money(row, "Giá 3 ngày"), 3);
       product.configureCommercialTerms(money(row, "Giá 6 tiếng"), money(row, "Giá 2 ngày"),
           money(row, "Giá ngày tiếp theo"), money(row, "Phí cọc"), BigDecimal.ZERO,
@@ -90,7 +100,7 @@ public class ApprovedCatalogImportService {
       try {
         product.updateCustomAttributes(objectMapper.writeValueAsString(Map.of(
             "source", SOURCE_FILE,
-            "importStatus", "ADMIN_REVIEW_REQUIRED",
+            "importStatus", "ACTIVE_PREVIEW",
             "declaredQuantity", integer(row, "Số lượng"),
             "kitConfiguration", config)));
       } catch (IOException error) {
