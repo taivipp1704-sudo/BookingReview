@@ -11,6 +11,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class AdminBootstrap {
+  private static final String PRIMARY_ADMIN_ID = "USR-ADMIN-001";
+
   @Bean
   @ConditionalOnProperty(name = "claritycam.bootstrap-admin", havingValue = "true")
   CommandLineRunner bootstrapAdmin(
@@ -27,17 +29,30 @@ public class AdminBootstrap {
             "CLARITYCAM_ADMIN_PASSWORD must be 12-128 characters with uppercase, lowercase, number and symbol");
       }
       String normalizedEmail = email.trim().toLowerCase();
+      String passwordHash = passwordEncoder.encode(password);
       AdminUser existing = users.findByEmailIgnoreCase(normalizedEmail).orElse(null);
       if (existing != null) {
-        existing.update("ADMIN", true, passwordEncoder.encode(password));
+        if (!PRIMARY_ADMIN_ID.equals(existing.getId())) {
+          throw new IllegalStateException(
+              "CLARITYCAM_ADMIN_EMAIL belongs to a non-primary admin account");
+        }
+        existing.update("ADMIN", true, passwordHash);
         users.save(existing);
         return;
       }
+
+      AdminUser primaryAdmin = users.findById(PRIMARY_ADMIN_ID).orElse(null);
+      if (primaryAdmin != null) {
+        primaryAdmin.replaceCredentials(normalizedEmail, passwordHash);
+        users.save(primaryAdmin);
+        return;
+      }
+
       if (users.count() > 0) {
         throw new IllegalStateException(
-            "CLARITYCAM_ADMIN_EMAIL does not match an existing admin account");
+            "Primary admin account is missing; refusing to replace another staff account");
       }
-      users.save(new AdminUser("USR-ADMIN-001", normalizedEmail, passwordEncoder.encode(password), "ADMIN", true));
+      users.save(new AdminUser(PRIMARY_ADMIN_ID, normalizedEmail, passwordHash, "ADMIN", true));
     };
   }
 }

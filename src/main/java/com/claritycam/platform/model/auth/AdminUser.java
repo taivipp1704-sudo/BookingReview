@@ -38,6 +38,13 @@ public class AdminUser {
     if (passwordHash != null && !passwordHash.isBlank()) this.passwordHash = passwordHash;
   }
 
+  public void replaceCredentials(String email, String passwordHash) {
+    this.email = email;
+    this.passwordHash = passwordHash;
+    this.role = "ADMIN";
+    this.active = true;
+  }
+
   public String getId() { return id; }
   public String getEmail() { return email; }
   public String getPasswordHash() { return passwordHash; }
