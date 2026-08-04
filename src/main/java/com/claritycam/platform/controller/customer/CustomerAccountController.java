@@ -218,7 +218,7 @@ public class CustomerAccountController {
       boolean earlyPickupApproved, BigDecimal earlyPickupFee, LocalDateTime holdExpiresAt,
       boolean identityDocumentsAvailable, boolean paymentProofAvailable,
       String storeBranchId, String storeBranchCode, String storeBranchName, String storeBranchAddress,
-      List<BookingLine> items) {
+      List<AccountBookingLineResponse> items) {
     static AccountBookingResponse from(Booking booking) { return new AccountBookingResponse(booking.getId(), booking.getState(),
         booking.getSubtotalAmount(), booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(),
         booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getPromotionCode(),
@@ -228,6 +228,15 @@ public class CustomerAccountController {
         booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
         booking.getPaymentProofReference() != null,
         booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
-        booking.getStoreBranchAddress(), booking.getItems()); }
+        booking.getStoreBranchAddress(), booking.getItems().stream().map(AccountBookingLineResponse::from).toList()); }
+  }
+
+  public record AccountBookingLineResponse(String productId, int quantity, BigDecimal listedUnitPrice,
+      BigDecimal chargedUnitPrice, BigDecimal chargedAmount, String pricingMode, int billableUnits) {
+    static AccountBookingLineResponse from(BookingLine line) {
+      return new AccountBookingLineResponse(line.getProductId(), line.getQuantity(),
+          line.getListedUnitPriceSnapshot(), line.getChargeUnitPriceSnapshot(), line.getChargeAmountSnapshot(),
+          line.getPricingModeSnapshot(), line.getBillableUnitsSnapshot());
+    }
   }
 }

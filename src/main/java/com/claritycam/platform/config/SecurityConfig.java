@@ -96,8 +96,24 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
             .requestMatchers("/actuator/metrics", "/actuator/metrics/**").hasRole("ADMIN")
-            .requestMatchers(HttpMethod.GET, "/api/features", "/api/catalog/**", "/api/media/catalog/**", "/api/stores", "/api/auth/csrf", "/api/customer/account/**", "/api/customer/support").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**", "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release", "/api/bookings/track", "/api/customer/account/**", "/api/customer/support").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/features", "/api/catalog/**", "/api/media/catalog/**",
+                "/api/stores", "/api/auth/csrf", "/api/customer/support").permitAll()
+            .requestMatchers(HttpMethod.GET,
+                "/api/customer/account/me",
+                "/api/customer/account/bookings",
+                "/api/customer/account/bookings/*/identity/*",
+                "/api/customer/account/bookings/*/payment-proof").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**",
+                "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release",
+                "/api/bookings/track", "/api/customer/support").permitAll()
+            .requestMatchers(HttpMethod.POST,
+                "/api/customer/account/login",
+                "/api/customer/account/register",
+                "/api/customer/account/logout",
+                "/api/customer/account/onboarding/complete",
+                "/api/customer/account/password/change",
+                "/api/customer/account/identity-documents",
+                "/api/customer/account/payment-proof").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
             .requestMatchers("/api/admin/customer-accounts/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")

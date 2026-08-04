@@ -513,7 +513,10 @@ class BookingFlowIntegrationTest {
     mockMvc.perform(get("/api/customer/account/bookings").session(customerSession))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].identityDocumentsAvailable").value(true))
-        .andExpect(jsonPath("$[0].paymentProofAvailable").value(true));
+        .andExpect(jsonPath("$[0].paymentProofAvailable").value(true))
+        .andExpect(jsonPath("$[0].items[0].productId").value("GEAR-001"))
+        .andExpect(jsonPath("$[0].items[0].serialId").doesNotExist())
+        .andExpect(jsonPath("$[0].items[0].pricingRuleVersion").doesNotExist());
 
     MvcResult customerIdentity = mockMvc.perform(
             get("/api/customer/account/bookings/{id}/identity/front", bookingId).session(customerSession))
