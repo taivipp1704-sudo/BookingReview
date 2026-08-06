@@ -51,7 +51,7 @@ spring:
 
 claritycam:
   features:
-    booking-enabled: ${BOOKING_ENABLED:false}
+    booking-enabled: ${CUSTOMER_BOOKING_ENABLED:true}
     early-access-registration-enabled: ${EARLY_ACCESS_REGISTRATION_ENABLED:true}
   cors-origins: ${CORS_ORIGINS}
   seed-demo-data: ${SEED_DEMO_DATA:false}
@@ -111,4 +111,4 @@ management:
 info:
   app:
     name: AMY Digital preview API
-    booking-enabled: ${BOOKING_ENABLED:false}
+    booking-enabled: ${CUSTOMER_BOOKING_ENABLED:true}

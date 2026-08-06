@@ -48,7 +48,7 @@ services:
         value: "false"
       - key: SMS_PROVIDER
         value: "none"
-      - key: BOOKING_ENABLED
+      - key: CUSTOMER_BOOKING_ENABLED
         value: "true"
       - key: EARLY_ACCESS_REGISTRATION_ENABLED
         value: "true"
