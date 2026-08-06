@@ -12,6 +12,9 @@ spring:
       ddl-auto: update
 
 claritycam:
+  features:
+    booking-enabled: true
+    early-access-registration-enabled: true
   cors-origins: http://127.0.0.1:5175,http://localhost:5175
   seed-demo-data: true
   admin:
