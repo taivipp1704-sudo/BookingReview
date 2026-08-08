@@ -28,6 +28,18 @@ public class ApprovedCatalogImportService {
   public static final String CONFIRMATION = "IMPORT_APPROVED_EXCEL";
   private static final String RESOURCE = "import/amy-approved-catalog.json";
   private static final String SOURCE_FILE = "AMY_DIGITAL_Tong_hop_may_phu_kien_gia_den_bu.xlsx";
+  private static final Map<String, String> PRODUCT_IMAGES = Map.ofEntries(
+      Map.entry("CANON-R50", "/catalog/products/canon-r50.jpg"),
+      Map.entry("CANON-M50", "/catalog/products/canon-m50.jpg"),
+      Map.entry("CANON-G7X-M2", "/catalog/products/canon-g7x-m2.webp"),
+      Map.entry("CANON-M100", "/catalog/products/canon-m100.jpg"),
+      Map.entry("CANON-M200", "/catalog/products/canon-m200.jpg"),
+      Map.entry("CANON-M10", "/catalog/products/canon-m10.jpg"),
+      Map.entry("FUJI-XA5", "/catalog/products/fuji-xa5.jpg"),
+      Map.entry("FUJI-XM5", "/catalog/products/fuji-xm5.jpg"),
+      Map.entry("CANON-IXY-600F", "/catalog/products/canon-ixy-600f.webp"),
+      Map.entry("CANON-M6", "/catalog/products/canon-m6.jpg"),
+      Map.entry("POCKET-3", "/catalog/products/pocket-3.jpg"));
 
   private final ObjectMapper objectMapper;
   private final ProductRepository products;
@@ -77,19 +89,28 @@ public class ApprovedCatalogImportService {
     for (Map<String, String> row : table(tableNode)) {
       String name = row.get("Tên máy");
       String id = "CAM-" + slug(name);
+      String imageUrl = PRODUCT_IMAGES.getOrDefault(slug(name), "");
       Map<String, String> config = configs.getOrDefault(name, Map.of());
       Optional<Product> existing = products.findById(id);
       if (existing.isPresent()) {
         Product product = existing.get();
+        boolean changed = false;
         if (!product.isActive()) {
           product.activateForPreview();
+          changed = true;
+        }
+        if (!imageUrl.isBlank() && !imageUrl.equals(product.getImageUrl())) {
+          product.updateImageUrl(imageUrl);
+          changed = true;
+        }
+        if (changed) {
           products.save(product);
           count++;
         }
         continue;
       }
       Product product = new Product(id, "IMPORT", name, brand(name),
-          config.getOrDefault("Nhóm thiết bị", "Camera"), money(row, "Giá 1 ngày"), false, true, "",
+          config.getOrDefault("Nhóm thiết bị", "Camera"), money(row, "Giá 1 ngày"), false, true, imageUrl,
           config.getOrDefault("Ống kính tiêu chuẩn", "Đang cập nhật"), "SERIALIZED", slug(name));
       product.activateForPreview();
       product.configurePricing(BigDecimal.ZERO, money(row, "Giá 3 ngày"), 3);

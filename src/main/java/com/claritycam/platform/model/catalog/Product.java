@@ -133,6 +133,10 @@ public class Product {
     this.customAttributes = customAttributes == null || customAttributes.isBlank() ? "{}" : customAttributes;
   }
 
+  public void updateImageUrl(String imageUrl) {
+    this.imageUrl = imageUrl == null ? "" : imageUrl.trim();
+  }
+
   public void updateBookingCountBase(long bookingCountBase) {
     this.bookingCountBase = Math.max(0, bookingCountBase);
   }

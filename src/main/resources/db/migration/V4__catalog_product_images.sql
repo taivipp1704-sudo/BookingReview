@@ -1,0 +1,11 @@
+UPDATE products SET image_url = '/catalog/products/canon-r50.jpg' WHERE id = 'CAM-CANON-R50';
+UPDATE products SET image_url = '/catalog/products/canon-m50.jpg' WHERE id = 'CAM-CANON-M50';
+UPDATE products SET image_url = '/catalog/products/canon-g7x-m2.webp' WHERE id = 'CAM-CANON-G7X-M2';
+UPDATE products SET image_url = '/catalog/products/canon-m100.jpg' WHERE id = 'CAM-CANON-M100';
+UPDATE products SET image_url = '/catalog/products/canon-m200.jpg' WHERE id = 'CAM-CANON-M200';
+UPDATE products SET image_url = '/catalog/products/canon-m10.jpg' WHERE id = 'CAM-CANON-M10';
+UPDATE products SET image_url = '/catalog/products/fuji-xa5.jpg' WHERE id = 'CAM-FUJI-XA5';
+UPDATE products SET image_url = '/catalog/products/fuji-xm5.jpg' WHERE id = 'CAM-FUJI-XM5';
+UPDATE products SET image_url = '/catalog/products/canon-ixy-600f.webp' WHERE id = 'CAM-CANON-IXY-600F';
+UPDATE products SET image_url = '/catalog/products/canon-m6.jpg' WHERE id = 'CAM-CANON-M6';
+UPDATE products SET image_url = '/catalog/products/pocket-3.jpg' WHERE id = 'CAM-POCKET-3';
