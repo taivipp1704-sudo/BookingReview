@@ -16,6 +16,7 @@ import jakarta.validation.constraints.NotEmpty;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/admin/catalog/bundles")
 public class AdminBundleController {
+  private static final Set<String> LEGACY_MOCK_BUNDLE_IDS = Set.of("BND-001", "BND-002");
+
   private final BundleRepository bundles;
   private final ProductRepository products;
   private final AuditService audit;
@@ -37,7 +40,12 @@ public class AdminBundleController {
   }
 
   @GetMapping
-  List<RentalBundle> list() { return bundles.findAllWithItems().stream().sorted(Comparator.comparing(RentalBundle::getName)).toList(); }
+  List<RentalBundle> list() {
+    return bundles.findAllWithItems().stream()
+        .filter(bundle -> !LEGACY_MOCK_BUNDLE_IDS.contains(bundle.getId()))
+        .sorted(Comparator.comparing(RentalBundle::getName))
+        .toList();
+  }
 
   @PostMapping @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")

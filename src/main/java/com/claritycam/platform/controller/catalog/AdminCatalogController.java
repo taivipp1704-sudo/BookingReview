@@ -19,6 +19,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -37,6 +38,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RestController
 @RequestMapping("/api/admin/catalog")
 public class AdminCatalogController {
+  private static final Set<String> LEGACY_MOCK_PRODUCT_IDS = Set.of(
+      "GEAR-001", "GEAR-002", "GEAR-003", "GEAR-004",
+      "ACC-001", "ACC-002", "ACC-003", "ACC-004", "ACC-005", "ACC-006", "ACC-007");
+
   private final ProductRepository products;
   private final AuditService audit;
   private final ProductBookingCountService bookingCounts;
@@ -60,6 +65,7 @@ public class AdminCatalogController {
   @GetMapping("/products")
   List<Product> products() {
     List<Product> sorted = products.findAll().stream()
+        .filter(product -> !LEGACY_MOCK_PRODUCT_IDS.contains(product.getId()))
         .sorted(Comparator.comparing(Product::getLevelCode).thenComparing(Product::getName))
         .toList();
     return bookingCounts.includeBookingCounts(sorted);
