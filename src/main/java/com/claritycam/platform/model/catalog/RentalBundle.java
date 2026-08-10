@@ -78,6 +78,7 @@ public class RentalBundle {
   }
 
   public void deactivate() { this.active = false; }
+  public void setActive(boolean active) { this.active = active; }
 
   public void publishNextVersion() {
     this.currentVersion = getCurrentVersion() + 1;

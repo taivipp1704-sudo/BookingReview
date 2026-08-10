@@ -36,6 +36,11 @@ public class BundleVersionService {
     return versions.findByBundleIdOrderByVersionNumberDesc(bundleId);
   }
 
+  @Transactional
+  public void deleteHistory(String bundleId) {
+    versions.deleteByBundleId(bundleId);
+  }
+
   private String snapshot(RentalBundle bundle) {
     Map<String, Object> value = new LinkedHashMap<>();
     value.put("id", bundle.getId());

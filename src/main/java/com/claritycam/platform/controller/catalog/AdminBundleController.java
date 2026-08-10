@@ -77,16 +77,27 @@ public class AdminBundleController {
         saved.getName() + " v" + saved.getCurrentVersion()); return saved;
   }
 
-  @DeleteMapping("/{id}")
+  @PatchMapping("/{id}/visibility")
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   @Transactional
-  RentalBundle archive(@PathVariable String id, Authentication authentication) {
+  RentalBundle updateVisibility(@PathVariable String id, @RequestParam boolean active, Authentication authentication) {
     RentalBundle bundle = bundles.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy combo."));
-    bundle.deactivate();
+    bundle.setActive(active);
     bundle.publishNextVersion();
     RentalBundle saved = bundles.save(bundle);
     versionService.publish(saved, authentication.getName());
-    audit.record(authentication.getName(), "BUNDLE_ARCHIVED", "BUNDLE", id, saved.getName()); return saved;
+    audit.record(authentication.getName(), active ? "BUNDLE_RESTORED" : "BUNDLE_HIDDEN", "BUNDLE", id, saved.getName()); return saved;
+  }
+
+  @DeleteMapping("/{id}")
+  @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+  @Transactional
+  void delete(@PathVariable String id, Authentication authentication) {
+    RentalBundle bundle = bundles.findByIdWithItemsForUpdate(id)
+        .orElseThrow(() -> ApiException.notFound("Bundle not found."));
+    versionService.deleteHistory(id);
+    bundles.delete(bundle);
+    audit.record(authentication.getName(), "BUNDLE_DELETED", "BUNDLE", id, bundle.getName());
   }
 
   @GetMapping("/{id}/versions")

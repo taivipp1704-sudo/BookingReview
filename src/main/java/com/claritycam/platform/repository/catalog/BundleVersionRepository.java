@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface BundleVersionRepository extends JpaRepository<BundleVersion, String> {
   List<BundleVersion> findByBundleIdOrderByVersionNumberDesc(String bundleId);
   boolean existsByBundleId(String bundleId);
+  void deleteByBundleId(String bundleId);
 }
