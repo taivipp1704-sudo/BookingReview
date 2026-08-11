@@ -34,6 +34,8 @@ public class Product {
   private boolean included;
   private boolean active;
   private String imageUrl;
+  @Column(nullable = false)
+  private long mediaRevision = 1;
   private String specs;
   private String trackingMode;
   private String serialPrefix;
@@ -98,6 +100,10 @@ public class Product {
   }
 
   public void apply(ProductPayload payload) {
+    String nextImageUrl = payload.imageUrl() == null ? "" : payload.imageUrl().trim();
+    String nextCustomAttributes = payload.customAttributes() == null || payload.customAttributes().isBlank()
+        ? "{}" : payload.customAttributes().trim();
+    if (!nextImageUrl.equals(imageUrl) || !nextCustomAttributes.equals(customAttributes)) mediaRevision++;
     this.levelCode = payload.levelCode().trim();
     this.name = payload.name().trim();
     this.brand = payload.brand().trim();
@@ -118,23 +124,26 @@ public class Product {
     if (payload.damageLiabilityLimit() != null) this.damageLiabilityLimit = payload.damageLiabilityLimit();
     this.included = payload.included();
     this.active = payload.active();
-    this.imageUrl = payload.imageUrl() == null ? "" : payload.imageUrl().trim();
+    this.imageUrl = nextImageUrl;
     this.specs = payload.specs().trim();
     this.trackingMode = payload.trackingMode();
     this.serialPrefix = payload.serialPrefix() == null ? "" : payload.serialPrefix().trim();
     this.storeBranchId = payload.storeBranchId() == null || payload.storeBranchId().isBlank()
         ? null : payload.storeBranchId().trim();
     this.bookingCountBase = payload.bookingCountBase();
-    this.customAttributes = payload.customAttributes() == null || payload.customAttributes().isBlank()
-        ? "{}" : payload.customAttributes().trim();
+    this.customAttributes = nextCustomAttributes;
   }
 
   public void updateCustomAttributes(String customAttributes) {
-    this.customAttributes = customAttributes == null || customAttributes.isBlank() ? "{}" : customAttributes;
+    String nextCustomAttributes = customAttributes == null || customAttributes.isBlank() ? "{}" : customAttributes;
+    if (!nextCustomAttributes.equals(this.customAttributes)) mediaRevision++;
+    this.customAttributes = nextCustomAttributes;
   }
 
   public void updateImageUrl(String imageUrl) {
-    this.imageUrl = imageUrl == null ? "" : imageUrl.trim();
+    String nextImageUrl = imageUrl == null ? "" : imageUrl.trim();
+    if (!nextImageUrl.equals(this.imageUrl)) mediaRevision++;
+    this.imageUrl = nextImageUrl;
   }
 
   public void updateBookingCountBase(long bookingCountBase) {
@@ -204,6 +213,7 @@ public class Product {
   public boolean isIncluded() { return included; }
   public boolean isActive() { return active; }
   public String getImageUrl() { return imageUrl; }
+  public long getMediaRevision() { return mediaRevision; }
   public String getSpecs() { return specs; }
   public String getTrackingMode() { return trackingMode; }
   public String getSerialPrefix() { return serialPrefix; }

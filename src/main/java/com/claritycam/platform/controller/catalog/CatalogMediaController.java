@@ -1,6 +1,7 @@
 package com.claritycam.platform.controller.catalog;
 
 import com.claritycam.platform.exception.ApiException;
+import com.claritycam.platform.infrastructure.storage.IdentityObjectStorage;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -8,14 +9,11 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,70 +33,53 @@ public class CatalogMediaController {
   private static final int TARGET_WIDTH = 1200;
   private static final int TARGET_HEIGHT = 900;
   private static final long MAX_PIXELS = 40_000_000L;
-  private final Path root;
+  private static final String CATALOG_KEY_PREFIX = "catalog/";
+  private final IdentityObjectStorage storage;
 
-  public CatalogMediaController(
-      @Value("${claritycam.catalog-image-storage:./public-data/catalog}") String storageRoot) {
-    this.root = Path.of(storageRoot).toAbsolutePath().normalize();
-    try {
-      Files.createDirectories(root);
-    } catch (IOException error) {
-      throw new IllegalStateException("Không thể khởi tạo kho ảnh catalog.", error);
-    }
+  public CatalogMediaController(IdentityObjectStorage storage) {
+    this.storage = storage;
   }
 
   @PostMapping(value = "/admin/media/catalog-images", consumes = "multipart/form-data")
   @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
   Map<String, String> upload(@RequestPart("file") MultipartFile file) {
     byte[] normalized = normalize(file);
-    String name = UUID.randomUUID().toString() + ".jpg";
-    try {
-      Files.write(root.resolve(name), normalized);
-    } catch (IOException error) {
-      throw new IllegalStateException("Không thể lưu ảnh catalog.", error);
-    }
+    String name = UUID.randomUUID() + ".jpg";
+    storage.put(CATALOG_KEY_PREFIX + name, normalized);
     return Map.of("url", "/api/media/catalog/" + name);
   }
 
   @GetMapping("/media/catalog/{name}")
   ResponseEntity<byte[]> read(@PathVariable String name) {
     if (!name.matches("[0-9a-fA-F-]{36}\\.jpg")) {
-      throw ApiException.notFound("Không tìm thấy ảnh.");
+      throw ApiException.notFound("Khong tim thay anh catalog.");
     }
-    Path file = root.resolve(name).normalize();
-    if (!file.startsWith(root) || !Files.isRegularFile(file)) {
-      throw ApiException.notFound("Không tìm thấy ảnh.");
-    }
-    try {
-      return ResponseEntity.ok()
-          .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(30)).cachePublic())
-          .contentType(MediaType.IMAGE_JPEG)
-          .body(Files.readAllBytes(file));
-    } catch (IOException error) {
-      throw new IllegalStateException("Không thể đọc ảnh catalog.", error);
-    }
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(30)).cachePublic())
+        .contentType(MediaType.IMAGE_JPEG)
+        .body(storage.get(CATALOG_KEY_PREFIX + name));
   }
 
   private byte[] normalize(MultipartFile file) {
-    if (file == null || file.isEmpty()) throw ApiException.badRequest("Vui lòng chọn ảnh JPG hoặc PNG.");
-    if (file.getSize() > MAX_BYTES) throw ApiException.badRequest("Ảnh không được vượt quá 8 MB.");
+    if (file == null || file.isEmpty()) throw ApiException.badRequest("Vui long chon anh JPG hoac PNG.");
+    if (file.getSize() > MAX_BYTES) throw ApiException.badRequest("Anh khong duoc vuot qua 8 MB.");
     try {
       byte[] source = file.getBytes();
       BufferedImage decoded;
       try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(source))) {
         var readers = ImageIO.getImageReaders(input);
-        if (!readers.hasNext()) throw ApiException.badRequest("Tệp tải lên không phải ảnh hợp lệ.");
+        if (!readers.hasNext()) throw ApiException.badRequest("Tep tai len khong phai anh hop le.");
         ImageReader reader = readers.next();
         try {
           reader.setInput(input, true, true);
           String format = reader.getFormatName().toUpperCase();
           if (!format.equals("JPEG") && !format.equals("JPG") && !format.equals("PNG")) {
-            throw ApiException.badRequest("Chỉ hỗ trợ ảnh JPG hoặc PNG.");
+            throw ApiException.badRequest("Chi ho tro anh JPG hoac PNG.");
           }
           int width = reader.getWidth(0);
           int height = reader.getHeight(0);
           if (width < 240 || height < 180 || (long) width * height > MAX_PIXELS) {
-            throw ApiException.badRequest("Kích thước ảnh không hợp lệ.");
+            throw ApiException.badRequest("Kich thuoc anh khong hop le.");
           }
           decoded = reader.read(0);
         } finally {
@@ -122,7 +103,7 @@ public class CatalogMediaController {
     } catch (ApiException error) {
       throw error;
     } catch (IOException error) {
-      throw ApiException.badRequest("Không thể đọc ảnh tải lên.");
+      throw ApiException.badRequest("Khong the doc anh tai len.");
     }
   }
 }
