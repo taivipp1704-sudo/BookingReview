@@ -536,30 +536,19 @@ class BookingFlowIntegrationTest {
     mockMvc.perform(get("/api/customer/account/bookings/{id}/identity/front", bookingId).session(otherCustomer))
         .andExpect(status().isForbidden());
 
-    MvcResult trackOtpRequest = mockMvc.perform(post("/api/otp/request")
+    mockMvc.perform(post("/api/bookings/track")
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"phone\":\"0901234567\",\"purpose\":\"TRACK\"}"))
-        .andExpect(status().isOk())
-        .andReturn();
-    JsonNode trackOtp = objectMapper.readTree(trackOtpRequest.getResponse().getContentAsString());
-
-    MvcResult trackVerify = mockMvc.perform(post("/api/otp/verify")
-            .cookie(csrf.cookie())
-            .header("X-XSRF-TOKEN", csrf.token())
-            .contentType(APPLICATION_JSON)
-            .content("{\"challengeId\":\"" + trackOtp.path("challengeId").asText() + "\",\"phone\":\"0901234567\",\"code\":\"" + trackOtp.path("demoCode").asText() + "\",\"purpose\":\"TRACK\"}"))
-        .andExpect(status().isOk())
-        .andReturn();
-    String trackToken = objectMapper.readTree(trackVerify.getResponse().getContentAsString()).path("verificationToken").asText();
+            .content("{\"bookingId\":\"" + bookingId + "\",\"phone\":\"0901234567\"}"))
+        .andExpect(status().isOk());
 
     mockMvc.perform(post("/api/bookings/track")
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"bookingId\":\"" + bookingId + "\",\"phone\":\"0901234567\",\"verificationToken\":\"" + trackToken + "\"}"))
-        .andExpect(status().isOk());
+            .content("{\"bookingId\":\"" + bookingId + "\",\"phone\":\"0900000000\"}"))
+        .andExpect(status().isForbidden());
 
     MvcResult login = mockMvc.perform(post("/api/auth/login")
             .cookie(csrf.cookie())

@@ -13,7 +13,6 @@ import com.claritycam.platform.service.common.RateLimitService;
 import com.claritycam.platform.service.common.ClientAddressResolver;
 import com.claritycam.platform.service.common.ReleaseFeatureService;
 import com.claritycam.platform.service.otp.OtpService;
-import com.claritycam.platform.model.otp.OtpPurpose;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -47,20 +46,17 @@ public class BookingController {
   private final CustomerAccountService customerAccounts;
   private final RateLimitService rateLimit;
   private final ClientAddressResolver clientAddressResolver;
-  private final OtpService otpService;
   private final ReleaseFeatureService releaseFeatures;
 
   public BookingController(BookingService bookingService, AuditService auditService,
       CustomerAccountService customerAccounts, RateLimitService rateLimit,
       ClientAddressResolver clientAddressResolver,
-      OtpService otpService,
       ReleaseFeatureService releaseFeatures) {
     this.bookingService = bookingService;
     this.auditService = auditService;
     this.customerAccounts = customerAccounts;
     this.rateLimit = rateLimit;
     this.clientAddressResolver = clientAddressResolver;
-    this.otpService = otpService;
     this.releaseFeatures = releaseFeatures;
   }
 
@@ -110,7 +106,6 @@ public class BookingController {
     String phone = OtpService.normalizePhone(request.phone());
     rateLimit.check("track:phone:" + phone, 20, Duration.ofMinutes(15));
     rateLimit.check("track:ip:" + clientAddressResolver.resolve(servletRequest), 40, Duration.ofMinutes(15));
-    otpService.consume(request.verificationToken(), phone, OtpPurpose.TRACK);
     return PublicBookingResponse.from(bookingService.track(request.bookingId(), phone));
   }
 
@@ -232,8 +227,7 @@ public class BookingController {
   public record ReleaseHoldRequest(@NotBlank String holdToken) {}
   public record TrackBookingRequest(
       @NotBlank @Size(max = 64) String bookingId,
-      @NotBlank @Size(max = 20) String phone,
-      @NotBlank @Size(max = 128) String verificationToken) {}
+      @NotBlank @Size(max = 20) String phone) {}
   public record ChangeStateRequest(@NotNull BookingState state, @Size(max = 500) String reason) {}
   public record EarlyPickupReviewRequest(boolean approved, @DecimalMin("0") BigDecimal fee,
                                          @Size(max = 500) String reason) {}
