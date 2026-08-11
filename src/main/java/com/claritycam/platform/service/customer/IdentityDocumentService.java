@@ -19,6 +19,8 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.imageio.ImageIO;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import org.springframework.beans.factory.annotation.Value;
@@ -117,6 +119,11 @@ public class IdentityDocumentService {
           deleteQuietly(upload.getBackStorageKey());
           uploads.delete(upload);
         });
+  }
+
+  @EventListener(ApplicationReadyEvent.class)
+  public void cleanupExpiredOnStartup() {
+    cleanupExpired();
   }
 
   private byte[] normalizeImage(MultipartFile file, String label) {
