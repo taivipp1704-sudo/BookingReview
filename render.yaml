@@ -44,6 +44,10 @@ services:
         value: "true"
       - key: FORWARD_HEADERS_STRATEGY
         value: "framework"
+      - key: DB_POOL_MAX_SIZE
+        value: "4"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
       - key: OTP_EXPOSE_DEMO_CODE
         value: "false"
       - key: SMS_PROVIDER
