@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingService {
   private static final Duration TEMPORARY_HOLD_DURATION = Duration.ofMinutes(5);
   private static final Duration PREPARATION_BUFFER = Duration.ofMinutes(30);
+  private static final BigDecimal MANDATORY_RESERVATION_DEPOSIT = BigDecimal.valueOf(50_000);
 
   private final BookingRepository bookings;
   private final ProductRepository products;
@@ -100,7 +101,7 @@ public class BookingService {
     List<String> unavailable = new ArrayList<>();
     BigDecimal total = BigDecimal.ZERO;
     BigDecimal equipmentDeposit = BigDecimal.ZERO;
-    BigDecimal bookingDeposit = BigDecimal.ZERO;
+    BigDecimal bookingDeposit = MANDATORY_RESERVATION_DEPOSIT;
     BigDecimal identityViolationFee = BigDecimal.ZERO;
     BigDecimal unauthorizedTransferFee = BigDecimal.ZERO;
     BigDecimal lateFeePerHour = BigDecimal.ZERO;
@@ -123,7 +124,6 @@ public class BookingService {
       BigDecimal lineTotal = charge.total().multiply(BigDecimal.valueOf(quantity));
       total = total.add(lineTotal);
       equipmentDeposit = equipmentDeposit.add(product.getEquipmentDeposit().multiply(BigDecimal.valueOf(quantity)));
-      bookingDeposit = bookingDeposit.add(product.getBookingDeposit().multiply(BigDecimal.valueOf(quantity)));
       BigDecimal productIdentityFee = configuredOr(product.getIdentityViolationFee(), product.getBookingDeposit());
       BigDecimal productTransferFee = configuredOr(product.getUnauthorizedTransferFee(),
           product.getDailyPrice().multiply(BigDecimal.valueOf(0.30)));
@@ -166,9 +166,11 @@ public class BookingService {
     BigDecimal discountAmount = promotion.discountAmount();
     total = subtotal.subtract(discountAmount).max(BigDecimal.ZERO);
     BigDecimal deposit = equipmentDeposit.add(bookingDeposit).setScale(0, RoundingMode.HALF_UP);
-    BigDecimal amountDueNow = total.add(deposit).setScale(0, RoundingMode.HALF_UP);
+    BigDecimal amountDueNow = bookingDeposit.setScale(0, RoundingMode.HALF_UP);
+    BigDecimal amountDueBeforeHandover = total.add(deposit).setScale(0, RoundingMode.HALF_UP);
     return new Quote(rentalMinutes, rentalHours, rentalDays, subtotal, discountAmount, total, deposit,
-        equipmentDeposit, bookingDeposit, amountDueNow, identityViolationFee, unauthorizedTransferFee,
+        equipmentDeposit, bookingDeposit, amountDueNow, amountDueBeforeHandover,
+        identityViolationFee, unauthorizedTransferFee,
         lateFeePerHour, impactPenaltyPercent, damageLiabilityLimit,
         unavailable.isEmpty(), unavailable, lines, request.bundleId(), bundleName,
         bundleCharge == null ? null : bundleCharge.pricingMode(),
@@ -579,7 +581,8 @@ public class BookingService {
   public record Quote(long rentalMinutes, long rentalHours, long rentalDays, BigDecimal subtotalAmount,
                       BigDecimal discountAmount, BigDecimal totalAmount,
                       BigDecimal depositRequired, BigDecimal equipmentDeposit, BigDecimal bookingDeposit,
-                      BigDecimal amountDueNow, BigDecimal identityViolationFee, BigDecimal unauthorizedTransferFee,
+                      BigDecimal amountDueNow, BigDecimal amountDueBeforeHandover,
+                      BigDecimal identityViolationFee, BigDecimal unauthorizedTransferFee,
                       BigDecimal lateFeePerHour, BigDecimal impactPenaltyPercent, BigDecimal damageLiabilityLimit,
                       boolean available, List<String> unavailableProducts,
                       List<QuoteLine> lines, String bundleId, String bundleName, String bundlePricingMode,

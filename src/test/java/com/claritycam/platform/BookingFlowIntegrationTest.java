@@ -356,6 +356,21 @@ class BookingFlowIntegrationTest {
   }
 
   @Test
+  void quotesTwoDayRateOnceAndOnlyCollectsMandatoryReservationDeposit() throws Exception {
+    Csrf csrf = csrf();
+    mockMvc.perform(post("/api/bookings/quote")
+            .cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token()).contentType(APPLICATION_JSON)
+            .content("{\"pickupTime\":\"2027-05-10T08:00:00\",\"returnTime\":\"2027-05-12T08:00:00\",\"rentalRate\":\"TWO_DAY\",\"items\":[{\"productId\":\"GEAR-002\",\"quantity\":1}]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rentalDays").value(2))
+        .andExpect(jsonPath("$.lines[0].pricingMode").value("TWO_DAY"))
+        .andExpect(jsonPath("$.lines[0].billableUnits").value(1))
+        .andExpect(jsonPath("$.totalAmount").value(3330000))
+        .andExpect(jsonPath("$.bookingDeposit").value(50000))
+        .andExpect(jsonPath("$.amountDueNow").value(50000));
+  }
+
+  @Test
   void quotesConfiguredMultiDayPackage() throws Exception {
     Csrf csrf = csrf();
     mockMvc.perform(post("/api/bookings/quote")
@@ -592,14 +607,16 @@ class BookingFlowIntegrationTest {
         .andExpect(jsonPath("$.state").value("CONFIRMED"))
         .andReturn();
 
-    String amountDueNow = objectMapper.readTree(confirmedBooking.getResponse().getContentAsString())
-        .path("amountDueNow").decimalValue().toPlainString();
+    var confirmedPayload = objectMapper.readTree(confirmedBooking.getResponse().getContentAsString());
+    assertEquals(0, confirmedPayload.path("amountDueNow").decimalValue().compareTo(BigDecimal.valueOf(50_000)));
+    String amountDueBeforeHandover = confirmedPayload.path("amountDueBeforeHandover")
+        .decimalValue().toPlainString();
     mockMvc.perform(post("/api/admin/finance/payments")
             .session(adminSession)
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"bookingId\":\"" + bookingId + "\",\"amount\":" + amountDueNow
+            .content("{\"bookingId\":\"" + bookingId + "\",\"amount\":" + amountDueBeforeHandover
                 + ",\"method\":\"BANK_TRANSFER\",\"providerReference\":\"TEST-" + bookingId
                 + "\",\"idempotencyKey\":\"test-payment-" + bookingId + "\",\"note\":\"Đã đối soát\"}"))
         .andExpect(status().isOk());

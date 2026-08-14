@@ -213,7 +213,7 @@ public class CustomerAccountController {
   }
   public record AccountBookingResponse(String id, BookingState state, BigDecimal subtotalAmount, BigDecimal discountAmount,
       BigDecimal totalAmount, BigDecimal depositRequired, BigDecimal equipmentDeposit, BigDecimal bookingDeposit,
-      BigDecimal amountDueNow, String promotionCode, LocalDateTime pickupTime,
+      BigDecimal amountDueNow, BigDecimal amountDueBeforeHandover, String promotionCode, LocalDateTime pickupTime,
       LocalDateTime returnTime, boolean earlyPickupRequested, LocalDateTime earlyPickupTime,
       boolean earlyPickupApproved, BigDecimal earlyPickupFee, LocalDateTime holdExpiresAt,
       boolean identityDocumentsAvailable, boolean paymentProofAvailable,
@@ -221,7 +221,8 @@ public class CustomerAccountController {
       List<AccountBookingLineResponse> items) {
     static AccountBookingResponse from(Booking booking) { return new AccountBookingResponse(booking.getId(), booking.getState(),
         booking.getSubtotalAmount(), booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(),
-        booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getPromotionCode(),
+        booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(),
+        booking.getAmountDueBeforeHandover(), booking.getPromotionCode(),
         booking.getPickupTime(), booking.getReturnTime(),
         booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),
         booking.getEarlyPickupFee(), booking.getHoldExpiresAt(),

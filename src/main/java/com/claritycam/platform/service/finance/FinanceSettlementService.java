@@ -250,9 +250,9 @@ public class FinanceSettlementService {
   public void assertCheckoutReady(Booking booking) {
     BigDecimal paid = paymentAllocations.findByBookingIdOrderByAllocatedAtAsc(booking.getId()).stream()
         .map(PaymentAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-    if (paid.compareTo(booking.getAmountDueNow()) < 0) {
+    if (paid.compareTo(booking.getAmountDueBeforeHandover()) < 0) {
       throw ApiException.badRequest("Chưa đủ tiền thuê và tiền cọc thực nhận. Còn thiếu "
-          + booking.getAmountDueNow().subtract(paid).setScale(0, RoundingMode.HALF_UP).toPlainString() + "đ.");
+          + booking.getAmountDueBeforeHandover().subtract(paid).setScale(0, RoundingMode.HALF_UP).toPlainString() + "đ.");
     }
   }
 

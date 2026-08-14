@@ -234,14 +234,16 @@ public class BookingController {
 
   public record PublicBookingResponse(String id, BookingState state, BigDecimal subtotalAmount, BigDecimal discountAmount,
                                       BigDecimal totalAmount, BigDecimal depositRequired, BigDecimal equipmentDeposit,
-                                      BigDecimal bookingDeposit, BigDecimal amountDueNow, String promotionCode,
+                                      BigDecimal bookingDeposit, BigDecimal amountDueNow,
+                                      BigDecimal amountDueBeforeHandover, String promotionCode,
                                       LocalDateTime pickupTime, LocalDateTime returnTime, String note,
                                       String storeBranchId, String storeBranchCode, String storeBranchName,
                                       String storeBranchAddress) {
     static PublicBookingResponse from(Booking booking) {
       return new PublicBookingResponse(booking.getId(), booking.getState(), booking.getSubtotalAmount(),
           booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(), booking.getEquipmentDeposit(),
-          booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getPromotionCode(),
+          booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getAmountDueBeforeHandover(),
+          booking.getPromotionCode(),
           booking.getPickupTime(), booking.getReturnTime(), booking.getNote(),
           booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
           booking.getStoreBranchAddress());
@@ -262,6 +264,7 @@ public class BookingController {
       BigDecimal equipmentDeposit,
       BigDecimal bookingDeposit,
       BigDecimal amountDueNow,
+      BigDecimal amountDueBeforeHandover,
       LocalDateTime pickupTime,
       LocalDateTime returnTime,
       String promotionCode,
@@ -284,6 +287,7 @@ public class BookingController {
           booking.getId(), booking.getCustomerName(), booking.getPhone(), booking.getTrustScore(), booking.getState(),
           booking.getSubtotalAmount(), booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(),
           booking.getDepositPaid(), booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(),
+          booking.getAmountDueBeforeHandover(),
           booking.getPickupTime(), booking.getReturnTime(), booking.getPromotionCode(),
           booking.getNote(), booking.getLastActionReason(), booking.getCreatedAt(),
           booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),

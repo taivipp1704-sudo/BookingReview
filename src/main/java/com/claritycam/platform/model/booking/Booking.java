@@ -92,7 +92,7 @@ public class Booking {
     this.depositPaid = BigDecimal.ZERO;
     this.equipmentDeposit = depositRequired;
     this.bookingDeposit = BigDecimal.ZERO;
-    this.amountDueNow = totalAmount.add(depositRequired);
+    this.amountDueNow = BigDecimal.ZERO;
     this.pickupTime = pickupTime;
     this.returnTime = returnTime;
     this.earlyPickupRequested = false;
@@ -132,7 +132,7 @@ public class Booking {
     this.earlyPickupApproved = approved;
     this.earlyPickupFee = approved && fee != null ? fee.max(BigDecimal.ZERO) : BigDecimal.ZERO;
     this.totalAmount = this.totalAmount.add(this.earlyPickupFee);
-    this.amountDueNow = this.totalAmount.add(getDepositRequired());
+    this.amountDueNow = getBookingDeposit();
     this.lastActionReason = reason == null ? "" : reason.trim();
     this.updatedAt = LocalDateTime.now();
   }
@@ -148,12 +148,13 @@ public class Booking {
   public BigDecimal getDepositPaid() { return depositPaid; }
   public BigDecimal getEquipmentDeposit() { return equipmentDeposit == null ? getDepositRequired() : equipmentDeposit; }
   public BigDecimal getBookingDeposit() { return bookingDeposit == null ? BigDecimal.ZERO : bookingDeposit; }
-  public BigDecimal getAmountDueNow() { return amountDueNow == null ? getTotalAmount().add(getDepositRequired()) : amountDueNow; }
+  public BigDecimal getAmountDueNow() { return amountDueNow == null ? getBookingDeposit() : amountDueNow; }
+  public BigDecimal getAmountDueBeforeHandover() { return getTotalAmount().add(getDepositRequired()); }
   public void applyPaymentBreakdown(BigDecimal equipmentDeposit, BigDecimal bookingDeposit, BigDecimal amountDueNow) {
     this.equipmentDeposit = equipmentDeposit == null ? BigDecimal.ZERO : equipmentDeposit.max(BigDecimal.ZERO);
     this.bookingDeposit = bookingDeposit == null ? BigDecimal.ZERO : bookingDeposit.max(BigDecimal.ZERO);
     this.depositRequired = this.equipmentDeposit.add(this.bookingDeposit);
-    this.amountDueNow = amountDueNow == null ? this.totalAmount.add(this.depositRequired) : amountDueNow.max(BigDecimal.ZERO);
+    this.amountDueNow = amountDueNow == null ? this.bookingDeposit : amountDueNow.max(BigDecimal.ZERO);
   }
   public LocalDateTime getPickupTime() { return pickupTime; }
   public LocalDateTime getReturnTime() { return returnTime; }

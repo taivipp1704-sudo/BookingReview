@@ -31,15 +31,15 @@ public class ApprovedCatalogImportService {
   private static final Map<String, String> PRODUCT_IMAGES = Map.ofEntries(
       Map.entry("CANON-R50", "/catalog/products/canon-r50.jpg"),
       Map.entry("CANON-M50", "/catalog/products/canon-m50.jpg"),
-      Map.entry("CANON-G7X-M2", "/catalog/products/canon-g7x-m2.webp"),
+      Map.entry("CANON-G7X-M2", "/catalog/products/canon-g7x-m2.png"),
       Map.entry("CANON-M100", "/catalog/products/canon-m100.jpg"),
       Map.entry("CANON-M200", "/catalog/products/canon-m200.jpg"),
       Map.entry("CANON-M10", "/catalog/products/canon-m10.jpg"),
       Map.entry("FUJI-XA5", "/catalog/products/fuji-xa5.jpg"),
       Map.entry("FUJI-XM5", "/catalog/products/fuji-xm5.jpg"),
       Map.entry("CANON-IXY-600F", "/catalog/products/canon-ixy-600f.webp"),
-      Map.entry("CANON-IXY-650", "/catalog/products/canon-ixy-600f.webp"),
-      Map.entry("CANON-IXY-650F", "/catalog/products/canon-ixy-600f.webp"),
+      Map.entry("CANON-IXY-650", "/catalog/products/canon-ixy-650.jpg"),
+      Map.entry("CANON-IXY-650F", "/catalog/products/canon-ixy-650.jpg"),
       Map.entry("CANON-M6", "/catalog/products/canon-m6.jpg"),
       Map.entry("POCKET-3", "/catalog/products/pocket-3.jpg"));
 
