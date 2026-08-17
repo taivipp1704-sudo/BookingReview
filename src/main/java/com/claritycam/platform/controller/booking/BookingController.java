@@ -3,7 +3,9 @@ package com.claritycam.platform.controller.booking;
 import com.claritycam.platform.model.booking.Booking;
 import com.claritycam.platform.model.booking.BookingLine;
 import com.claritycam.platform.model.booking.BookingState;
+import com.claritycam.platform.model.catalog.Product;
 import com.claritycam.platform.model.finance.Payment;
+import com.claritycam.platform.repository.catalog.ProductRepository;
 import com.claritycam.platform.service.booking.BookingOperationsService;
 import com.claritycam.platform.service.booking.BookingService;
 import com.claritycam.platform.service.customer.CustomerAccountService;
@@ -24,6 +26,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -47,17 +52,20 @@ public class BookingController {
   private final RateLimitService rateLimit;
   private final ClientAddressResolver clientAddressResolver;
   private final ReleaseFeatureService releaseFeatures;
+  private final ProductRepository products;
 
   public BookingController(BookingService bookingService, AuditService auditService,
       CustomerAccountService customerAccounts, RateLimitService rateLimit,
       ClientAddressResolver clientAddressResolver,
-      ReleaseFeatureService releaseFeatures) {
+      ReleaseFeatureService releaseFeatures,
+      ProductRepository products) {
     this.bookingService = bookingService;
     this.auditService = auditService;
     this.customerAccounts = customerAccounts;
     this.rateLimit = rateLimit;
     this.clientAddressResolver = clientAddressResolver;
     this.releaseFeatures = releaseFeatures;
+    this.products = products;
   }
 
   @PostMapping("/api/bookings/quote")
@@ -98,7 +106,7 @@ public class BookingController {
         request.storeBranchId(), request.rentalRate()),
         sessionPhone, clientAddressResolver.resolve(servletRequest));
     servletRequest.getSession(true).setAttribute(CustomerAccountService.SESSION_PHONE, booking.getPhoneNormalized());
-    return PublicBookingResponse.from(booking);
+    return PublicBookingResponse.from(booking, products);
   }
 
   @PostMapping("/api/bookings/track")
@@ -106,7 +114,7 @@ public class BookingController {
     String phone = OtpService.normalizePhone(request.phone());
     rateLimit.check("track:phone:" + phone, 20, Duration.ofMinutes(15));
     rateLimit.check("track:ip:" + clientAddressResolver.resolve(servletRequest), 40, Duration.ofMinutes(15));
-    return PublicBookingResponse.from(bookingService.track(request.bookingId(), phone));
+    return PublicBookingResponse.from(bookingService.track(request.bookingId(), phone), products);
   }
 
   @GetMapping("/api/admin/bookings")
@@ -238,15 +246,31 @@ public class BookingController {
                                       BigDecimal amountDueBeforeHandover, String promotionCode,
                                       LocalDateTime pickupTime, LocalDateTime returnTime, String note,
                                       String storeBranchId, String storeBranchCode, String storeBranchName,
-                                      String storeBranchAddress) {
-    static PublicBookingResponse from(Booking booking) {
+                                      String storeBranchAddress,
+                                      List<PublicBookingLineResponse> items) {
+    static PublicBookingResponse from(Booking booking, ProductRepository products) {
+      Map<String, Product> productById = products.findAllById(
+          booking.getItems().stream().map(BookingLine::getProductId).toList())
+          .stream().collect(Collectors.toMap(Product::getId, Function.identity()));
       return new PublicBookingResponse(booking.getId(), booking.getState(), booking.getSubtotalAmount(),
           booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(), booking.getEquipmentDeposit(),
           booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getAmountDueBeforeHandover(),
           booking.getPromotionCode(),
           booking.getPickupTime(), booking.getReturnTime(), booking.getNote(),
           booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
-          booking.getStoreBranchAddress());
+          booking.getStoreBranchAddress(), booking.getItems().stream()
+              .map(line -> PublicBookingLineResponse.from(line, productById.get(line.getProductId())))
+              .toList());
+    }
+  }
+
+  public record PublicBookingLineResponse(String productId, String productName, String levelCode,
+                                          String category, int quantity) {
+    static PublicBookingLineResponse from(BookingLine line, Product product) {
+      return new PublicBookingLineResponse(line.getProductId(),
+          product == null ? line.getProductId() : product.getName(),
+          product == null ? "" : product.getLevelCode(),
+          product == null ? "" : product.getCategory(), line.getQuantity());
     }
   }
 

@@ -530,6 +530,8 @@ class BookingFlowIntegrationTest {
         .andExpect(jsonPath("$[0].identityDocumentsAvailable").value(true))
         .andExpect(jsonPath("$[0].paymentProofAvailable").value(true))
         .andExpect(jsonPath("$[0].items[0].productId").value("GEAR-001"))
+        .andExpect(jsonPath("$[0].items[0].productName").value("Sony FX3 Cinema Line"))
+        .andExpect(jsonPath("$[0].items[0].levelCode").value("L1"))
         .andExpect(jsonPath("$[0].items[0].serialId").doesNotExist())
         .andExpect(jsonPath("$[0].items[0].pricingRuleVersion").doesNotExist());
 
@@ -556,7 +558,10 @@ class BookingFlowIntegrationTest {
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
             .content("{\"bookingId\":\"" + bookingId + "\",\"phone\":\"0901234567\"}"))
-        .andExpect(status().isOk());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].productId").value("GEAR-001"))
+        .andExpect(jsonPath("$.items[0].productName").value("Sony FX3 Cinema Line"))
+        .andExpect(jsonPath("$.items[0].levelCode").value("L1"));
 
     mockMvc.perform(post("/api/bookings/track")
             .cookie(csrf.cookie())

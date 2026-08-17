@@ -10,6 +10,8 @@ import com.claritycam.platform.service.audit.AuditService;
 import com.claritycam.platform.model.booking.Booking;
 import com.claritycam.platform.model.booking.BookingLine;
 import com.claritycam.platform.model.booking.BookingState;
+import com.claritycam.platform.model.catalog.Product;
+import com.claritycam.platform.repository.catalog.ProductRepository;
 import com.claritycam.platform.service.common.RateLimitService;
 import com.claritycam.platform.service.common.ClientAddressResolver;
 import com.claritycam.platform.service.common.ReleaseFeatureService;
@@ -27,6 +29,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +56,7 @@ public class CustomerAccountController {
   private final ClientAddressResolver clientAddressResolver;
   private final ReleaseFeatureService releaseFeatures;
   private final CustomerWaitlistService waitlist;
+  private final ProductRepository products;
   public CustomerAccountController(
       CustomerAccountService service,
       IdentityDocumentService identityDocuments,
@@ -59,7 +65,8 @@ public class CustomerAccountController {
       RateLimitService rateLimit,
       ClientAddressResolver clientAddressResolver,
       ReleaseFeatureService releaseFeatures,
-      CustomerWaitlistService waitlist) {
+      CustomerWaitlistService waitlist,
+      ProductRepository products) {
     this.service = service;
     this.identityDocuments = identityDocuments;
     this.bookingService = bookingService;
@@ -68,6 +75,7 @@ public class CustomerAccountController {
     this.clientAddressResolver = clientAddressResolver;
     this.releaseFeatures = releaseFeatures;
     this.waitlist = waitlist;
+    this.products = products;
   }
 
   @PostMapping(value = "/identity-documents", consumes = "multipart/form-data")
@@ -127,7 +135,8 @@ public class CustomerAccountController {
 
   @GetMapping("/bookings")
   List<AccountBookingResponse> bookings(HttpServletRequest request) {
-    return service.bookings(sessionPhone(request)).stream().map(AccountBookingResponse::from).toList();
+    return service.bookings(sessionPhone(request)).stream()
+        .map(booking -> AccountBookingResponse.from(booking, products)).toList();
   }
 
   @GetMapping("/bookings/{id}/identity/{side}")
@@ -219,7 +228,11 @@ public class CustomerAccountController {
       boolean identityDocumentsAvailable, boolean paymentProofAvailable,
       String storeBranchId, String storeBranchCode, String storeBranchName, String storeBranchAddress,
       List<AccountBookingLineResponse> items) {
-    static AccountBookingResponse from(Booking booking) { return new AccountBookingResponse(booking.getId(), booking.getState(),
+    static AccountBookingResponse from(Booking booking, ProductRepository products) {
+      Map<String, Product> productById = products.findAllById(
+          booking.getItems().stream().map(BookingLine::getProductId).toList())
+          .stream().collect(Collectors.toMap(Product::getId, Function.identity()));
+      return new AccountBookingResponse(booking.getId(), booking.getState(),
         booking.getSubtotalAmount(), booking.getDiscountAmount(), booking.getTotalAmount(), booking.getDepositRequired(),
         booking.getEquipmentDeposit(), booking.getBookingDeposit(), booking.getAmountDueNow(),
         booking.getAmountDueBeforeHandover(), booking.getPromotionCode(),
@@ -229,13 +242,19 @@ public class CustomerAccountController {
         booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
         booking.getPaymentProofReference() != null,
         booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
-        booking.getStoreBranchAddress(), booking.getItems().stream().map(AccountBookingLineResponse::from).toList()); }
+        booking.getStoreBranchAddress(), booking.getItems().stream()
+            .map(line -> AccountBookingLineResponse.from(line, productById.get(line.getProductId())))
+            .toList()); }
   }
 
-  public record AccountBookingLineResponse(String productId, int quantity, BigDecimal listedUnitPrice,
+  public record AccountBookingLineResponse(String productId, String productName, String levelCode, String category,
+      int quantity, BigDecimal listedUnitPrice,
       BigDecimal chargedUnitPrice, BigDecimal chargedAmount, String pricingMode, int billableUnits) {
-    static AccountBookingLineResponse from(BookingLine line) {
-      return new AccountBookingLineResponse(line.getProductId(), line.getQuantity(),
+    static AccountBookingLineResponse from(BookingLine line, Product product) {
+      return new AccountBookingLineResponse(line.getProductId(),
+          product == null ? line.getProductId() : product.getName(),
+          product == null ? "" : product.getLevelCode(),
+          product == null ? "" : product.getCategory(), line.getQuantity(),
           line.getListedUnitPriceSnapshot(), line.getChargeUnitPriceSnapshot(), line.getChargeAmountSnapshot(),
           line.getPricingModeSnapshot(), line.getBillableUnitsSnapshot());
     }

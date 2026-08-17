@@ -377,7 +377,8 @@ public class BookingService {
   @Transactional
   public Booking track(String bookingId, String phone) {
     String normalizedPhone = OtpService.normalizePhone(phone);
-    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    Booking booking = bookings.findByIdWithItems(bookingId)
+        .orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
     if (!booking.getPhoneNormalized().equals(normalizedPhone)) {
       throw ApiException.forbidden("Thông tin tra cứu không khớp.");
     }
