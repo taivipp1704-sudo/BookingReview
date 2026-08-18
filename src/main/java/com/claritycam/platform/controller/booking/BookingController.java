@@ -84,7 +84,20 @@ public class BookingController {
     return bookingService.hold(new BookingService.QuoteRequest(request.pickupTime(), request.returnTime(),
         toItems(request.items()), request.bundleId(), request.holdToken(), request.promotionCode(),
         request.rentalRate()),
-        phone, clientAddressResolver.resolve(servletRequest));
+        phone, clientAddressResolver.resolve(servletRequest), request.identityUploadToken());
+  }
+
+  @GetMapping("/api/bookings/holds")
+  List<BookingService.CheckoutHold> checkoutHolds(HttpServletRequest servletRequest) {
+    releaseFeatures.requireBookingEnabled();
+    return bookingService.listCheckoutHolds(requireCustomerPhone(servletRequest));
+  }
+
+  @GetMapping("/api/bookings/holds/{holdToken}")
+  BookingService.CheckoutHold checkoutHold(@PathVariable String holdToken,
+      HttpServletRequest servletRequest) {
+    releaseFeatures.requireBookingEnabled();
+    return bookingService.checkoutHold(holdToken, requireCustomerPhone(servletRequest));
   }
 
   @PostMapping("/api/bookings/hold/release")
@@ -92,6 +105,14 @@ public class BookingController {
   void releaseHold(@Valid @RequestBody ReleaseHoldRequest request, HttpServletRequest servletRequest) {
     releaseFeatures.requireBookingEnabled();
     bookingService.releaseHold(request.holdToken(), requireCustomerPhone(servletRequest));
+  }
+
+  @PostMapping("/api/bookings/hold/payment-proof")
+  BookingService.CheckoutHold attachPaymentProof(@Valid @RequestBody HoldPaymentProofRequest request,
+      HttpServletRequest servletRequest) {
+    releaseFeatures.requireBookingEnabled();
+    return bookingService.attachPaymentProof(request.holdToken(), request.paymentProofUploadToken(),
+        requireCustomerPhone(servletRequest));
   }
 
   @PostMapping("/api/bookings")
@@ -211,7 +232,8 @@ public class BookingController {
       String bundleId,
       String holdToken,
       String promotionCode,
-      String rentalRate) {}
+      String rentalRate,
+      String identityUploadToken) {}
 
   public record SubmitBookingRequest(
       @NotBlank @Size(max = 180) String customerName,
@@ -233,6 +255,8 @@ public class BookingController {
       @NotBlank @Size(max = 64) String productId,
       @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(10) int quantity) {}
   public record ReleaseHoldRequest(@NotBlank String holdToken) {}
+  public record HoldPaymentProofRequest(@NotBlank String holdToken,
+                                        @NotBlank String paymentProofUploadToken) {}
   public record TrackBookingRequest(
       @NotBlank @Size(max = 64) String bookingId,
       @NotBlank @Size(max = 20) String phone) {}

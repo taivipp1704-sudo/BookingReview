@@ -349,7 +349,7 @@ class BookingFlowIntegrationTest {
         .andExpect(jsonPath("$.lines[0].billableUnits").value(1))
         .andExpect(jsonPath("$.totalAmount").value(1080000))
         .andExpect(jsonPath("$.identityViolationFee").value(360000))
-        .andExpect(jsonPath("$.unauthorizedTransferFee").value(540000))
+        .andExpect(jsonPath("$.unauthorizedTransferFee").value(0))
         .andExpect(jsonPath("$.lateFeePerHour").value(225000))
         .andExpect(jsonPath("$.impactPenaltyPercent").value(100))
         .andExpect(jsonPath("$.damageLiabilityLimit").value(18000000));
@@ -461,6 +461,119 @@ class BookingFlowIntegrationTest {
     assertTrue(expiresAt.isAfter(requestedAt.plusSeconds(270)));
     assertTrue(expiresAt.isBefore(Instant.now().plusSeconds(330)));
     releaseHold(csrf, customer, payload.path("holdToken").asText());
+  }
+
+  @Test
+  void customerCanResumeOnlyTheirOwnActiveCheckoutHold() throws Exception {
+    Csrf csrf = csrf();
+    MockHttpSession owner = customerSession(csrf, "0903333355", "Khách giữ phiên thanh toán");
+    MockHttpSession otherCustomer = customerSession(csrf, "0903333366", "Khách khác");
+    String identityUploadToken = "identity-resume-test";
+
+    MvcResult holdResult = mockMvc.perform(post("/api/bookings/hold")
+            .session(owner)
+            .cookie(csrf.cookie())
+            .header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"pickupTime\":\"2027-11-20T08:00:00\",\"returnTime\":\"2027-11-20T20:00:00\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"items\":[{\"productId\":\"GEAR-002\",\"quantity\":1}]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.quote.available").value(true))
+        .andReturn();
+    String holdToken = objectMapper.readTree(holdResult.getResponse().getContentAsString())
+        .path("holdToken").asText();
+    String paymentProofUploadToken = uploadPaymentProof(csrf, owner);
+
+    mockMvc.perform(post("/api/bookings/hold/payment-proof")
+            .session(owner)
+            .cookie(csrf.cookie())
+            .header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"holdToken\":\"" + holdToken + "\",\"paymentProofUploadToken\":\""
+                + paymentProofUploadToken + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.holdToken").value(holdToken))
+        .andExpect(jsonPath("$.paymentProofUploadToken").value(paymentProofUploadToken));
+
+    mockMvc.perform(get("/api/bookings/holds").session(owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].holdToken").value(holdToken))
+        .andExpect(jsonPath("$[0].primaryProductId").value("GEAR-002"))
+        .andExpect(jsonPath("$[0].items[0].productName").isNotEmpty())
+        .andExpect(jsonPath("$[0].identityUploadToken").value(identityUploadToken))
+        .andExpect(jsonPath("$[0].paymentProofUploadToken").value(paymentProofUploadToken));
+
+    mockMvc.perform(get("/api/bookings/holds/{holdToken}", holdToken).session(owner))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.holdToken").value(holdToken))
+        .andExpect(jsonPath("$.quote.available").value(true));
+
+    mockMvc.perform(get("/api/bookings/holds/{holdToken}", holdToken).session(otherCustomer))
+        .andExpect(status().isNotFound());
+
+    mockMvc.perform(post("/api/bookings/hold/payment-proof")
+            .session(otherCustomer)
+            .cookie(csrf.cookie())
+            .header("X-XSRF-TOKEN", csrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"holdToken\":\"" + holdToken + "\",\"paymentProofUploadToken\":\""
+                + paymentProofUploadToken + "\"}"))
+        .andExpect(status().isNotFound());
+
+    releaseHold(csrf, owner, holdToken);
+  }
+
+  @Test
+  void customerCanResumeCheckoutHoldAfterBrowserSessionIsReplaced() throws Exception {
+    String phone = "0903333377";
+    Csrf initialCsrf = csrf();
+    MockHttpSession initialSession = customerSession(initialCsrf, phone, "Khách mở lại thanh toán");
+
+    MvcResult holdResult = mockMvc.perform(post("/api/bookings/hold")
+            .session(initialSession)
+            .cookie(initialCsrf.cookie())
+            .header("X-XSRF-TOKEN", initialCsrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"pickupTime\":\"2027-12-20T08:00:00\",\"returnTime\":\"2027-12-20T20:00:00\",\"identityUploadToken\":\"identity-new-browser-test\",\"items\":[{\"productId\":\"GEAR-002\",\"quantity\":1}]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.quote.available").value(true))
+        .andReturn();
+    String holdToken = objectMapper.readTree(holdResult.getResponse().getContentAsString())
+        .path("holdToken").asText();
+    String paymentProofUploadToken = uploadPaymentProof(initialCsrf, initialSession);
+
+    mockMvc.perform(post("/api/bookings/hold/payment-proof")
+            .session(initialSession)
+            .cookie(initialCsrf.cookie())
+            .header("X-XSRF-TOKEN", initialCsrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"holdToken\":\"" + holdToken + "\",\"paymentProofUploadToken\":\""
+                + paymentProofUploadToken + "\"}"))
+        .andExpect(status().isOk());
+
+    // A closed browser loses its HTTP session and CSRF cookie. Log in again with both recreated.
+    Csrf freshCsrf = csrf();
+    MvcResult loginResult = mockMvc.perform(post("/api/customer/account/login")
+            .cookie(freshCsrf.cookie())
+            .header("X-XSRF-TOKEN", freshCsrf.token())
+            .contentType(APPLICATION_JSON)
+            .content("{\"phone\":\"" + phone + "\",\"password\":\"test-password\"}"))
+        .andExpect(status().isOk())
+        .andReturn();
+    MockHttpSession freshSession = (MockHttpSession) loginResult.getRequest().getSession(false);
+
+    mockMvc.perform(get("/api/bookings/holds").session(freshSession))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].holdToken").value(holdToken))
+        .andExpect(jsonPath("$[0].primaryProductId").value("GEAR-002"))
+        .andExpect(jsonPath("$[0].identityUploadToken").value("identity-new-browser-test"))
+        .andExpect(jsonPath("$[0].paymentProofUploadToken").value(paymentProofUploadToken));
+
+    mockMvc.perform(get("/api/bookings/holds/{holdToken}", holdToken).session(freshSession))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.holdToken").value(holdToken))
+        .andExpect(jsonPath("$.quote.available").value(true));
+
+    releaseHold(freshCsrf, freshSession, holdToken);
   }
 
   @Test
@@ -807,6 +920,7 @@ class BookingFlowIntegrationTest {
     MockHttpSession session = new MockHttpSession();
     MvcResult login = mockMvc.perform(post("/api/customer/account/register")
             .session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token())
+            .header("X-Forwarded-For", "198.51.100." + Integer.parseInt(phone.substring(phone.length() - 2)))
             .contentType(APPLICATION_JSON)
             .content("{\"phone\":\"" + phone + "\",\"name\":\"" + name + "\",\"email\":\"customer-" + phone + "@example.com\",\"password\":\"test-password\",\"consentAccepted\":true}"))
         .andExpect(status().isCreated()).andReturn();

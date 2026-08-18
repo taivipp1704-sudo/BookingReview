@@ -3,9 +3,11 @@ package com.claritycam.platform.service.booking;
 import com.claritycam.platform.model.booking.Booking;
 import com.claritycam.platform.model.booking.BookingLine;
 import com.claritycam.platform.model.booking.BookingState;
+import com.claritycam.platform.model.booking.CheckoutHoldReservation;
 import com.claritycam.platform.model.booking.ReservationType;
 import com.claritycam.platform.model.promotion.Promotion;
 import com.claritycam.platform.repository.booking.BookingRepository;
+import com.claritycam.platform.repository.booking.CheckoutHoldReservationRepository;
 import com.claritycam.platform.repository.catalog.ProductRepository;
 import com.claritycam.platform.repository.inventory.InventoryAssetRepository;
 import com.claritycam.platform.repository.inventory.StockItemRepository;
@@ -34,7 +36,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +47,7 @@ public class BookingService {
   private static final BigDecimal MANDATORY_RESERVATION_DEPOSIT = BigDecimal.valueOf(50_000);
 
   private final BookingRepository bookings;
+  private final CheckoutHoldReservationRepository checkoutHolds;
   private final ProductRepository products;
   private final InventoryAssetRepository assets;
   private final StockItemRepository stock;
@@ -58,10 +60,10 @@ public class BookingService {
   private final BookingOperationsService operations;
   private final FinanceSettlementService financeSettlement;
   private final StoreBranchService storeBranches;
-  private final Map<String, TemporaryHold> temporaryHolds = new ConcurrentHashMap<>();
 
   public BookingService(
       BookingRepository bookings,
+      CheckoutHoldReservationRepository checkoutHolds,
       ProductRepository products,
       InventoryAssetRepository assets,
       StockItemRepository stock,
@@ -71,6 +73,7 @@ public class BookingService {
       IdentityDocumentService identityDocuments, BookingOperationsService operations,
       FinanceSettlementService financeSettlement, StoreBranchService storeBranches) {
     this.bookings = bookings;
+    this.checkoutHolds = checkoutHolds;
     this.products = products;
     this.assets = assets;
     this.stock = stock;
@@ -125,13 +128,10 @@ public class BookingService {
       total = total.add(lineTotal);
       equipmentDeposit = equipmentDeposit.add(product.getEquipmentDeposit().multiply(BigDecimal.valueOf(quantity)));
       BigDecimal productIdentityFee = configuredOr(product.getIdentityViolationFee(), product.getBookingDeposit());
-      BigDecimal productTransferFee = configuredOr(product.getUnauthorizedTransferFee(),
-          product.getDailyPrice().multiply(BigDecimal.valueOf(0.30)));
       BigDecimal productImpactPercent = configuredOr(product.getImpactPenaltyPercent(), BigDecimal.valueOf(100));
       BigDecimal productDamageLimit = configuredOr(product.getDamageLiabilityLimit(),
           product.getEquipmentDeposit().max(product.getDailyPrice().multiply(BigDecimal.TEN)));
       identityViolationFee = identityViolationFee.add(productIdentityFee.multiply(BigDecimal.valueOf(quantity)));
-      unauthorizedTransferFee = unauthorizedTransferFee.add(productTransferFee.multiply(BigDecimal.valueOf(quantity)));
       lateFeePerHour = lateFeePerHour.add(product.getLateFeePerHour().multiply(BigDecimal.valueOf(quantity)));
       impactPenaltyPercent = impactPenaltyPercent.max(productImpactPercent);
       damageLiabilityLimit = damageLiabilityLimit.add(productDamageLimit.multiply(BigDecimal.valueOf(quantity)));
@@ -181,28 +181,29 @@ public class BookingService {
         promotion.breakdown());
   }
 
-  public synchronized HoldResponse hold(QuoteRequest request, String ownerPhone, String remoteAddress) {
+  public synchronized HoldResponse hold(QuoteRequest request, String ownerPhone, String remoteAddress,
+      String identityUploadToken) {
     purgeExpiredHolds();
     String normalizedOwner = OtpService.normalizePhone(ownerPhone);
     String requestedToken = normalizeToken(request.holdToken());
-    TemporaryHold existing = requestedToken == null ? null : temporaryHolds.get(requestedToken);
-    if (requestedToken != null && (existing == null || !existing.ownerPhone().equals(normalizedOwner))) {
+    CheckoutHoldReservation existing = requestedToken == null ? null : checkoutHolds.findById(requestedToken).orElse(null);
+    if (requestedToken != null && (existing == null || !existing.getOwnerPhone().equals(normalizedOwner)
+        || !existing.getExpiresAt().isAfter(Instant.now()))) {
       throw ApiException.badRequest("Phiên giữ máy đã hết hạn. Vui lòng bắt đầu lại.");
     }
     if (existing == null && requestedToken == null) {
-      var ownerHold = temporaryHolds.entrySet().stream()
-          .filter(entry -> entry.getValue().ownerPhone().equals(normalizedOwner))
-          .findFirst()
-          .orElse(null);
+      var ownerHold = checkoutHolds.findFirstByOwnerPhoneAndExpiresAtAfterOrderByExpiresAtAsc(
+          normalizedOwner, Instant.now()).orElse(null);
       if (ownerHold != null) {
-        requestedToken = ownerHold.getKey();
-        existing = ownerHold.getValue();
+        requestedToken = ownerHold.getToken();
+        existing = ownerHold;
       }
     }
     if (existing == null) {
       rateLimit.check("hold:phone:" + normalizedOwner, 8, Duration.ofMinutes(15));
       rateLimit.check("hold:ip:" + remoteAddress, 30, Duration.ofMinutes(15));
-      temporaryHolds.entrySet().removeIf(entry -> entry.getValue().ownerPhone().equals(normalizedOwner));
+      checkoutHolds.findByOwnerPhoneAndExpiresAtAfterOrderByExpiresAtAsc(normalizedOwner, Instant.now())
+          .forEach(checkoutHolds::delete);
     } else {
       rateLimit.check("hold-update:phone:" + normalizedOwner, 120, Duration.ofMinutes(5));
     }
@@ -213,14 +214,18 @@ public class BookingService {
             requestedToken, request.promotionCode(), request.rentalRate());
     Quote quote = quote(effectiveRequest, null);
     if (!quote.available()) {
-      return new HoldResponse(requestedToken, existing == null ? null : existing.expiresAt(), quote);
+      return new HoldResponse(requestedToken, existing == null ? null : existing.getExpiresAt(), quote);
     }
 
     String token = existing == null ? UUID.randomUUID().toString() : requestedToken;
     Instant expiresAt = existing == null
         ? Instant.now().plus(TEMPORARY_HOLD_DURATION)
-        : existing.expiresAt();
-    TemporaryHold hold = new TemporaryHold(
+        : existing.getExpiresAt();
+    String normalizedIdentityUploadToken = normalizeToken(identityUploadToken);
+    String effectiveIdentityUploadToken = normalizedIdentityUploadToken != null
+        ? normalizedIdentityUploadToken
+        : (existing == null ? null : existing.getIdentityUploadToken());
+    CheckoutHoldReservation hold = new CheckoutHoldReservation(
         token,
         request.pickupTime(),
         request.returnTime(),
@@ -229,16 +234,81 @@ public class BookingService {
         normalizePromotionCode(request.promotionCode()),
         normalizeRentalRate(request.rentalRate()),
         normalizedOwner,
+        effectiveIdentityUploadToken,
+        existing == null ? null : existing.getPaymentProofUploadToken(),
         expiresAt);
-    temporaryHolds.put(token, hold);
+    checkoutHolds.save(hold);
     return new HoldResponse(token, expiresAt, quote);
   }
 
   public void releaseHold(String holdToken, String ownerPhone) {
     String token = normalizeToken(holdToken);
     String normalizedOwner = OtpService.normalizePhone(ownerPhone);
-    if (token != null) temporaryHolds.computeIfPresent(token,
-        (ignored, hold) -> hold.ownerPhone().equals(normalizedOwner) ? null : hold);
+    if (token == null) return;
+    checkoutHolds.findById(token)
+        .filter(hold -> hold.getOwnerPhone().equals(normalizedOwner))
+        .ifPresent(checkoutHolds::delete);
+  }
+
+  public List<CheckoutHold> listCheckoutHolds(String ownerPhone) {
+    purgeExpiredHolds();
+    String normalizedOwner = OtpService.normalizePhone(ownerPhone);
+    return checkoutHolds.findByOwnerPhoneAndExpiresAtAfterOrderByExpiresAtAsc(normalizedOwner, Instant.now()).stream()
+        .map(this::toCheckoutHold)
+        .toList();
+  }
+
+  public CheckoutHold checkoutHold(String holdToken, String ownerPhone) {
+    purgeExpiredHolds();
+    String token = normalizeToken(holdToken);
+    String normalizedOwner = OtpService.normalizePhone(ownerPhone);
+    CheckoutHoldReservation hold = token == null ? null : checkoutHolds.findById(token).orElse(null);
+    if (hold == null || !hold.getOwnerPhone().equals(normalizedOwner)
+        || !hold.getExpiresAt().isAfter(Instant.now())) {
+      throw ApiException.notFound("Phiên thanh toán không còn hiệu lực.");
+    }
+    return toCheckoutHold(hold);
+  }
+
+  public synchronized CheckoutHold attachPaymentProof(String holdToken, String paymentProofUploadToken,
+      String ownerPhone) {
+    purgeExpiredHolds();
+    String token = normalizeToken(holdToken);
+    String proofToken = normalizeToken(paymentProofUploadToken);
+    String normalizedOwner = OtpService.normalizePhone(ownerPhone);
+    CheckoutHoldReservation hold = token == null ? null : checkoutHolds.findById(token).orElse(null);
+    if (hold == null || !hold.getOwnerPhone().equals(normalizedOwner)
+        || !hold.getExpiresAt().isAfter(Instant.now())) {
+      throw ApiException.notFound("Phiên thanh toán không còn hiệu lực.");
+    }
+    if (proofToken == null) {
+      throw ApiException.badRequest("Thiếu ảnh chuyển khoản cho phiên thanh toán.");
+    }
+    identityDocuments.validateUpload(proofToken, normalizedOwner);
+    hold.attachPaymentProof(proofToken);
+    return toCheckoutHold(checkoutHolds.save(hold));
+  }
+
+  private CheckoutHold toCheckoutHold(CheckoutHoldReservation hold) {
+    List<ItemRequest> itemRequests = hold.getItems().entrySet().stream()
+        .map(entry -> new ItemRequest(entry.getKey(), entry.getValue()))
+        .toList();
+    Quote quote = quote(new QuoteRequest(hold.getPickupTime(), hold.getReturnTime(), itemRequests,
+        hold.getBundleId(), hold.getToken(), hold.getPromotionCode(), hold.getRentalRate()));
+    List<CheckoutHoldItem> items = hold.getItems().entrySet().stream().map(entry -> {
+      Product product = products.findById(entry.getKey())
+          .orElseThrow(() -> ApiException.notFound("Không tìm thấy thiết bị trong phiên thanh toán."));
+      return new CheckoutHoldItem(product.getId(), product.getName(), product.getLevelCode(),
+          product.getCategory(), entry.getValue());
+    }).toList();
+    String primaryProductId = items.stream()
+        .filter(item -> "L1".equalsIgnoreCase(item.levelCode()))
+        .map(CheckoutHoldItem::productId)
+        .findFirst()
+        .orElse(items.isEmpty() ? null : items.get(0).productId());
+    return new CheckoutHold(hold.getToken(), hold.getExpiresAt(), hold.getPickupTime(), hold.getReturnTime(),
+        items, primaryProductId, hold.getBundleId(), hold.getPromotionCode(), hold.getRentalRate(),
+        hold.getIdentityUploadToken(), hold.getPaymentProofUploadToken(), quote);
   }
 
   @Transactional
@@ -258,12 +328,17 @@ public class BookingService {
     }
     purgeExpiredHolds();
     String holdToken = normalizeToken(request.holdToken());
-    TemporaryHold hold = holdToken == null ? null : temporaryHolds.get(holdToken);
+    CheckoutHoldReservation hold = holdToken == null ? null : checkoutHolds.findById(holdToken).orElse(null);
     Map<String, Integer> requestedItems = normalizeItems(request.items());
-    if (hold == null || !hold.ownerPhone().equals(normalizedPhone)
-        || !hold.matches(request.pickupTime(), request.returnTime(), requestedItems, request.bundleId(),
+    if (hold == null || !hold.getExpiresAt().isAfter(Instant.now())
+        || !hold.getOwnerPhone().equals(normalizedPhone)
+        || !holdMatches(hold, request.pickupTime(), request.returnTime(), requestedItems, request.bundleId(),
             request.promotionCode(), request.rentalRate())) {
       throw ApiException.badRequest("Phiên giữ máy không hợp lệ hoặc đã hết hạn. Vui lòng bắt đầu lại.");
+    }
+    if (hold.getPaymentProofUploadToken() != null
+        && !hold.getPaymentProofUploadToken().equals(normalizeToken(request.paymentProofUploadToken()))) {
+      throw ApiException.badRequest("Ảnh chuyển khoản không khớp với phiên thanh toán đang giữ.");
     }
     Quote quote = quote(new QuoteRequest(request.pickupTime(), request.returnTime(), request.items(),
         request.bundleId(), holdToken, request.promotionCode(), request.rentalRate()));
@@ -304,7 +379,7 @@ public class BookingService {
     booking.attachPaymentProof(claimedPaymentProof.frontStorageKey());
     Booking saved = bookings.save(booking);
     operations.replaceReservations(saved, ReservationType.SOFT, "PUBLIC");
-    temporaryHolds.remove(holdToken);
+    checkoutHolds.deleteById(holdToken);
     customerAccounts.ensure(normalizedPhone, request.customerName());
     audit.record("PUBLIC", "BOOKING_CREATED", "BOOKING", saved.getId(), "Customer session from " + remoteAddress);
     return saved;
@@ -394,10 +469,9 @@ public class BookingService {
       return quantity == 0 ? null : new ScheduleBlock(booking.getPickupTime(), booking.getReturnTime(), quantity);
     }).filter(Objects::nonNull).toList());
     purgeExpiredHolds();
-    temporaryHolds.values().stream()
-        .filter(hold -> hold.overlaps(from, to))
-        .map(hold -> new ScheduleBlock(hold.pickupTime(), hold.returnTime(),
-            hold.items().getOrDefault(productId, 0)))
+    checkoutHolds.findActiveOverlapping(Instant.now(), from, to).stream()
+        .map(hold -> new ScheduleBlock(hold.getPickupTime(), hold.getReturnTime(),
+            hold.getItems().getOrDefault(productId, 0)))
         .filter(block -> block.reservedQuantity() > 0)
         .forEach(result::add);
     return result;
@@ -445,10 +519,9 @@ public class BookingService {
         .filter(item -> product.getId().equals(item.getProductId()))
         .mapToInt(BookingLine::getQuantity).sum();
     reserved += operations.activeReservedQuantity(product.getId(), effectiveFrom, effectiveTo, excludedBookingId);
-    int temporarilyHeld = temporaryHolds.values().stream()
-        .filter(hold -> excludedHoldToken == null || !hold.token().equals(excludedHoldToken))
-        .filter(hold -> hold.overlaps(effectiveFrom, effectiveTo))
-        .mapToInt(hold -> hold.items().getOrDefault(product.getId(), 0))
+    int temporarilyHeld = checkoutHolds.findActiveOverlapping(Instant.now(), effectiveFrom, effectiveTo).stream()
+        .filter(hold -> excludedHoldToken == null || !hold.getToken().equals(excludedHoldToken))
+        .mapToInt(hold -> hold.getItems().getOrDefault(product.getId(), 0))
         .sum();
     return capacity - reserved - temporarilyHeld >= quantity;
   }
@@ -487,9 +560,20 @@ public class BookingService {
     return quantities;
   }
 
-  private void purgeExpiredHolds() {
-    Instant now = Instant.now();
-    temporaryHolds.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
+  @Transactional
+  public void purgeExpiredHolds() {
+    checkoutHolds.deleteByExpiresAtLessThanEqual(Instant.now());
+  }
+
+  private static boolean holdMatches(CheckoutHoldReservation hold, LocalDateTime pickup,
+      LocalDateTime returned, Map<String, Integer> requestedItems, String requestedBundleId,
+      String requestedPromotionCode, String requestedRentalRate) {
+    return hold.getPickupTime().equals(pickup)
+        && hold.getReturnTime().equals(returned)
+        && hold.getItems().equals(requestedItems)
+        && Objects.equals(hold.getBundleId(), normalizeBundleId(requestedBundleId))
+        && Objects.equals(hold.getPromotionCode(), normalizePromotionCode(requestedPromotionCode))
+        && Objects.equals(hold.getRentalRate(), normalizeRentalRate(requestedRentalRate));
   }
 
   public IdentityDocumentService.StoredImage paymentProof(String bookingId) {
@@ -591,27 +675,17 @@ public class BookingService {
                       String promotionName, BigDecimal discountPercent,
                       List<PromotionService.DailyDiscount> promotionBreakdown) {}
   public record HoldResponse(String holdToken, Instant expiresAt, Quote quote) {}
+  public record CheckoutHoldItem(String productId, String productName, String levelCode,
+                                 String category, int quantity) {}
+  public record CheckoutHold(String holdToken, Instant expiresAt, LocalDateTime pickupTime,
+                             LocalDateTime returnTime, List<CheckoutHoldItem> items,
+                             String primaryProductId, String bundleId, String promotionCode,
+                             String rentalRate, String identityUploadToken,
+                             String paymentProofUploadToken, Quote quote) {}
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
                                LocalDateTime earlyPickupTime, String identityUploadToken, String paymentProofUploadToken,
                                String holdToken, String promotionCode, String storeBranchId, String rentalRate) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}
 
-  private record TemporaryHold(String token, LocalDateTime pickupTime, LocalDateTime returnTime,
-                               Map<String, Integer> items, String bundleId, String promotionCode, String rentalRate,
-                               String ownerPhone, Instant expiresAt) {
-    boolean overlaps(LocalDateTime from, LocalDateTime to) {
-      return pickupTime.isBefore(to) && returnTime.isAfter(from);
-    }
-
-    boolean matches(LocalDateTime pickup, LocalDateTime returned, Map<String, Integer> requestedItems,
-                    String requestedBundleId, String requestedPromotionCode, String requestedRentalRate) {
-      return pickupTime.equals(pickup)
-          && returnTime.equals(returned)
-          && items.equals(requestedItems)
-          && Objects.equals(bundleId, normalizeBundleId(requestedBundleId))
-          && Objects.equals(promotionCode, normalizePromotionCode(requestedPromotionCode))
-          && Objects.equals(rentalRate, normalizeRentalRate(requestedRentalRate));
-    }
-  }
 }

@@ -85,6 +85,15 @@ public class IdentityDocumentService {
     return new ClaimedDocuments(upload.getFrontStorageKey(), upload.getBackStorageKey());
   }
 
+  @Transactional(readOnly = true)
+  public void validateUpload(String uploadToken, String ownerPhone) {
+    IdentityUpload upload = uploads.findById(uploadToken)
+        .orElseThrow(() -> ApiException.badRequest("Phiên tải ảnh không tồn tại hoặc đã hết hạn."));
+    if (!upload.isUsableBy(fingerprint(ownerPhone), LocalDateTime.now())) {
+      throw ApiException.forbidden("Ảnh không thuộc phiên đăng nhập này, đã hết hạn hoặc đã được sử dụng.");
+    }
+  }
+
   public StoredImage read(String storageKey) {
     if (storageKey == null || !storageKey.matches("[0-9a-fA-F-]{36}\\.bin")) {
       throw ApiException.notFound("Không tìm thấy ảnh xác thực.");

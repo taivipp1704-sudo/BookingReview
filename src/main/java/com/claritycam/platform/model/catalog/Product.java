@@ -119,7 +119,7 @@ public class Product {
     if (payload.bookingDeposit() != null) this.bookingDeposit = payload.bookingDeposit();
     if (payload.lateFeePerHour() != null) this.lateFeePerHour = payload.lateFeePerHour();
     if (payload.identityViolationFee() != null) this.identityViolationFee = payload.identityViolationFee();
-    if (payload.unauthorizedTransferFee() != null) this.unauthorizedTransferFee = payload.unauthorizedTransferFee();
+    this.unauthorizedTransferFee = BigDecimal.ZERO;
     if (payload.impactPenaltyPercent() != null) this.impactPenaltyPercent = payload.impactPenaltyPercent();
     if (payload.damageLiabilityLimit() != null) this.damageLiabilityLimit = payload.damageLiabilityLimit();
     this.included = payload.included();
@@ -171,7 +171,7 @@ public class Product {
     this.bookingDeposit = nonNegative(bookingDeposit);
     this.lateFeePerHour = nonNegative(lateFeePerHour);
     this.identityViolationFee = nonNegative(identityViolationFee);
-    this.unauthorizedTransferFee = nonNegative(unauthorizedTransferFee);
+    this.unauthorizedTransferFee = BigDecimal.ZERO;
     this.impactPenaltyPercent = nonNegative(impactPenaltyPercent).min(BigDecimal.valueOf(100));
     this.damageLiabilityLimit = nonNegative(damageLiabilityLimit);
   }

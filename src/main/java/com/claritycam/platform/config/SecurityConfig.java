@@ -102,9 +102,12 @@ public class SecurityConfig {
                 "/api/customer/account/me",
                 "/api/customer/account/bookings",
                 "/api/customer/account/bookings/*/identity/*",
-                "/api/customer/account/bookings/*/payment-proof").permitAll()
+                "/api/customer/account/bookings/*/payment-proof",
+                "/api/bookings/holds",
+                "/api/bookings/holds/*").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**",
                 "/api/bookings", "/api/bookings/quote", "/api/bookings/hold", "/api/bookings/hold/release",
+                "/api/bookings/hold/payment-proof",
                 "/api/bookings/track", "/api/customer/support").permitAll()
             .requestMatchers(HttpMethod.POST,
                 "/api/customer/account/login",
