@@ -34,7 +34,7 @@ public class ApprovedCatalogImportService {
       Map.entry("CANON-G7X-M2", "/catalog/products/canon-g7x-m2.png"),
       Map.entry("CANON-M100", "/catalog/products/canon-m100.jpg"),
       Map.entry("CANON-M200", "/catalog/products/canon-m200.jpg"),
-      Map.entry("CANON-M10", "/catalog/products/canon-m10.jpg"),
+      Map.entry("CANON-M10", "/catalog/products/canon-m10-white-2026.jpg"),
       Map.entry("FUJI-XA5", "/catalog/products/fuji-xa5.jpg"),
       Map.entry("FUJI-XM5", "/catalog/products/fuji-xm5.jpg"),
       Map.entry("CANON-IXY-600F", "/catalog/products/canon-ixy-600f.webp"),
