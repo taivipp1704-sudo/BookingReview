@@ -6,6 +6,7 @@ import com.claritycam.platform.model.customer.CustomerAccount;
 import com.claritycam.platform.repository.booking.BookingRepository;
 import com.claritycam.platform.repository.customer.CustomerAccountRepository;
 import com.claritycam.platform.service.audit.AuditService;
+import com.claritycam.platform.service.booking.BookingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +17,9 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,13 +36,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminCustomerAccountController {
   private final CustomerAccountRepository accounts;
   private final BookingRepository bookings;
+  private final BookingService bookingService;
   private final PasswordEncoder passwordEncoder;
   private final AuditService audit;
 
   public AdminCustomerAccountController(CustomerAccountRepository accounts, BookingRepository bookings,
-      PasswordEncoder passwordEncoder, AuditService audit) {
+      BookingService bookingService, PasswordEncoder passwordEncoder, AuditService audit) {
     this.accounts = accounts;
     this.bookings = bookings;
+    this.bookingService = bookingService;
     this.passwordEncoder = passwordEncoder;
     this.audit = audit;
   }
@@ -95,6 +101,26 @@ public class AdminCustomerAccountController {
     return response(saved);
   }
 
+  @GetMapping("/{id}/identity/{side}")
+  @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+  ResponseEntity<byte[]> identityDocument(@PathVariable String id, @PathVariable String side,
+      Authentication authentication) {
+    CustomerAccount account = require(id);
+    var booking = bookings
+        .findFirstByPhoneNormalizedAndIdentityFrontReferenceIsNotNullAndIdentityBackReferenceIsNotNullOrderByCreatedAtDesc(
+            account.getPhoneNormalized())
+        .orElseThrow(() -> ApiException.notFound("Khách hàng chưa có đủ ảnh CCCD."));
+    var image = bookingService.identityDocument(booking.getId(), side);
+    audit.record(authentication.getName(), "CUSTOMER_IDENTITY_DOCUMENT_VIEWED", "CUSTOMER_ACCOUNT", id,
+        side.toLowerCase());
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(image.contentType()))
+        .header("Cache-Control", "no-store, private, max-age=0")
+        .header("Pragma", "no-cache")
+        .header("X-Content-Type-Options", "nosniff")
+        .body(image.bytes());
+  }
+
   private CustomerAccount require(String id) {
     return accounts.findById(id)
         .orElseThrow(() -> ApiException.notFound("Không tìm thấy tài khoản khách hàng."));
@@ -105,7 +131,9 @@ public class AdminCustomerAccountController {
         account.getPhoneNormalized(), account.isActive(), account.getCreatedAt(), account.getLastLoginAt(),
         account.getOnboardingVersion(), account.getOnboardingCompletedAt(),
         account.isMustChangePassword(), account.getPasswordHash() != null,
-        bookings.countByPhoneNormalized(account.getPhoneNormalized()));
+        bookings.countByPhoneNormalized(account.getPhoneNormalized()),
+        bookings.existsByPhoneNormalizedAndIdentityFrontReferenceIsNotNullAndIdentityBackReferenceIsNotNull(
+            account.getPhoneNormalized()));
   }
 
   private String normalizeEmail(String email) {
@@ -122,7 +150,7 @@ public class AdminCustomerAccountController {
                                 LocalDateTime createdAt, LocalDateTime lastLoginAt,
                                 int onboardingVersion, LocalDateTime onboardingCompletedAt,
                                 boolean mustChangePassword, boolean passwordConfigured,
-                                long bookingCount) {}
+                                long bookingCount, boolean identityDocumentsAvailable) {}
   public record AccountPage(List<AccountResponse> items, long total, int page, int size,
                             int totalPages) {}
 }

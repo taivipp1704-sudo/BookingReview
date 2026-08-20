@@ -692,6 +692,29 @@ class BookingFlowIntegrationTest {
         .andReturn();
     MockHttpSession adminSession = (MockHttpSession) login.getRequest().getSession(false);
 
+    MvcResult customerAccountList = mockMvc.perform(get("/api/admin/customer-accounts")
+            .session(adminSession)
+            .param("query", "0901234567"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].identityDocumentsAvailable").value(true))
+        .andExpect(jsonPath("$.items[0].identityFrontReference").doesNotExist())
+        .andExpect(jsonPath("$.items[0].identityBackReference").doesNotExist())
+        .andReturn();
+    String customerAccountId = objectMapper.readTree(customerAccountList.getResponse().getContentAsString())
+        .path("items").path(0).path("id").asText();
+
+    for (String side : Set.of("front", "back")) {
+      MvcResult identityDocument = mockMvc.perform(
+              get("/api/admin/customer-accounts/{id}/identity/{side}", customerAccountId, side)
+                  .session(adminSession))
+          .andExpect(status().isOk())
+          .andExpect(header().string("Cache-Control", "no-store, private, max-age=0"))
+          .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+          .andReturn();
+      assertEquals("image/jpeg", identityDocument.getResponse().getContentType());
+      assertTrue(identityDocument.getResponse().getContentAsByteArray().length > 0);
+    }
+
     mockMvc.perform(get("/api/admin/bookings").session(adminSession))
         .andExpect(status().isOk());
 
