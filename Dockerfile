@@ -7,7 +7,7 @@ RUN mvn -B -DskipTests dependency:go-offline
 COPY src ./src
 RUN mvn -B -DskipTests package
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:22-jre-jammy
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
