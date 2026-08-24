@@ -20,6 +20,34 @@
     <java.version>21</java.version>
   </properties>
 
+  <dependencyManagement>
+    <dependencies>
+      <!-- Force patched Netty release: fixes CVE-2026-59901, CVE-2026-55831,
+           CVE-2026-55833, CVE-2026-56745, CVE-2026-56819 pulled in transitively
+           by software.amazon.awssdk:s3 (netty-nio-client). -->
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>4.1.137.Final</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Force patched Apache HttpComponents Core5: fixes CVE-2026-54399,
+           CVE-2026-54428 pulled in transitively by software.amazon.awssdk:s3
+           (apache-client). -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents.core5</groupId>
+        <artifactId>httpcore5-h2</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
