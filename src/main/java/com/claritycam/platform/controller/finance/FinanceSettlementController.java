@@ -9,6 +9,8 @@ import com.claritycam.platform.model.finance.OperationalExpense;
 import com.claritycam.platform.model.finance.Payment;
 import com.claritycam.platform.model.finance.ReconciliationFinding;
 import com.claritycam.platform.model.finance.RefundRequest;
+import com.claritycam.platform.exception.ApiException;
+import com.claritycam.platform.service.booking.BookingService;
 import com.claritycam.platform.service.finance.FinanceAuthorizationService;
 import com.claritycam.platform.service.finance.FinanceSettlementService;
 import jakarta.validation.Valid;
@@ -35,10 +37,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class FinanceSettlementController {
   private final FinanceSettlementService finance;
   private final FinanceAuthorizationService authorization;
+  private final BookingService bookings;
 
-  public FinanceSettlementController(FinanceSettlementService finance, FinanceAuthorizationService authorization) {
+  public FinanceSettlementController(FinanceSettlementService finance, FinanceAuthorizationService authorization,
+      BookingService bookings) {
     this.finance = finance;
     this.authorization = authorization;
+    this.bookings = bookings;
   }
 
   @GetMapping("/dashboard")
@@ -123,8 +128,17 @@ public class FinanceSettlementController {
   @PostMapping("/payments")
   Payment recordPayment(@Valid @RequestBody PaymentRequest request, Authentication authentication) {
     authorization.require(authentication, "PAYMENT_RECORD");
-    return finance.recordPayment(request.bookingId(), request.amount(), request.method(), request.providerReference(),
-        request.idempotencyKey(), request.note(), authentication.getName());
+    Payment payment = finance.recordPayment(request.bookingId(), request.amount(), request.method(),
+        request.providerReference(), request.idempotencyKey(), request.note(), authentication.getName());
+    // Đủ tiền giữ lịch thì đơn tự chuyển sang "Đã xác nhận", admin không phải bấm duyệt tay nữa.
+    // Khoản thanh toán đã commit ở transaction trên, nên nếu bước tự duyệt không thực hiện được
+    // (kho hết hàng, trạng thái không cho chuyển) thì vẫn trả về phiếu thu và để admin duyệt tay.
+    try {
+      bookings.autoConfirmAfterDeposit(request.bookingId(), authentication.getName());
+    } catch (ApiException ignored) {
+      // Giữ nguyên trạng thái đơn; admin xử lý thủ công trong màn hình Đơn thuê.
+    }
+    return payment;
   }
 
   @PostMapping("/bookings/{bookingId}/charges")

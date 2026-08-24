@@ -46,6 +46,7 @@ public class Booking {
   private String identityFrontReference;
   private String identityBackReference;
   private String paymentProofReference;
+  private String bankAccountReference;
   private String bundleId;
   private String promotionCode;
   private String storeBranchId;
@@ -168,6 +169,8 @@ public class Booking {
   public void attachIdentityDocuments(String front, String back) { this.identityFrontReference = front; this.identityBackReference = back; }
   public String getPaymentProofReference() { return paymentProofReference; }
   public void attachPaymentProof(String reference) { this.paymentProofReference = reference; }
+  public String getBankAccountReference() { return bankAccountReference; }
+  public void attachBankAccount(String reference) { this.bankAccountReference = reference; }
   public void applyPromotion(BigDecimal subtotal, BigDecimal discount, String code) {
     this.subtotalAmount = subtotal;
     this.discountAmount = discount == null ? BigDecimal.ZERO : discount;

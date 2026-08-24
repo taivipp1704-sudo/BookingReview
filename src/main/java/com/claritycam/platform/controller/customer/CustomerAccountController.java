@@ -99,6 +99,16 @@ public class CustomerAccountController {
     return new IdentityDocumentResponse(receipt.uploadToken(), receipt.expiresAt());
   }
 
+  @PostMapping(value = "/bank-account", consumes = "multipart/form-data")
+  IdentityDocumentResponse uploadBankAccount(@RequestPart("file") MultipartFile file, HttpServletRequest request) {
+    releaseFeatures.requireBookingEnabled();
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("bank-account:phone:" + phone, 8, Duration.ofHours(1));
+    rateLimit.check("bank-account:ip:" + clientAddressResolver.resolve(request), 20, Duration.ofHours(1));
+    IdentityDocumentService.UploadReceipt receipt = identityDocuments.storeSingle(file, phone);
+    return new IdentityDocumentResponse(receipt.uploadToken(), receipt.expiresAt());
+  }
+
   @PostMapping("/login")
   AccountResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
     String phone = OtpService.normalizePhone(request.phone());

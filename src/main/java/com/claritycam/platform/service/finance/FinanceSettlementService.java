@@ -776,6 +776,11 @@ public class FinanceSettlementService {
   private BigDecimal sumAllocation(String bookingId, String type) {
     return value(paymentAllocations.sumByBookingAndType(bookingId, type));
   }
+
+  /** Tổng tiền giữ lịch (cọc 50.000đ) đã được ghi nhận và đối soát cho đơn này. */
+  public BigDecimal reservationDepositPaid(String bookingId) {
+    return sumAllocation(bookingId, RESERVATION_DEPOSIT);
+  }
   private BigDecimal confirmedChargeTotal(String bookingId, String type) {
     return charges.findByBookingIdOrderByCreatedAtAsc(bookingId).stream()
         .filter(item -> "CONFIRMED".equals(item.getStatus()) && type.equals(item.getType()))

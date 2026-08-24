@@ -45,6 +45,8 @@ public class BookingService {
   private static final Duration TEMPORARY_HOLD_DURATION = Duration.ofMinutes(5);
   private static final Duration PREPARATION_BUFFER = Duration.ofMinutes(30);
   private static final BigDecimal MANDATORY_RESERVATION_DEPOSIT = BigDecimal.valueOf(50_000);
+  private static final Set<BookingState> AUTO_CONFIRMABLE_STATES = Set.of(
+      BookingState.PENDING_REVIEW, BookingState.NEGOTIATION, BookingState.CONDITIONAL, BookingState.TEMP_HOLD);
 
   private final BookingRepository bookings;
   private final CheckoutHoldReservationRepository checkoutHolds;
@@ -351,6 +353,8 @@ public class BookingService {
         identityDocuments.claim(request.identityUploadToken(), normalizedPhone);
     IdentityDocumentService.ClaimedDocuments claimedPaymentProof =
         identityDocuments.claim(request.paymentProofUploadToken(), normalizedPhone);
+    IdentityDocumentService.ClaimedDocuments claimedBankAccount =
+        identityDocuments.claim(request.bankAccountUploadToken(), normalizedPhone);
     StoreBranch storeBranch = storeBranches.requireForBooking(request.storeBranchId());
 
     List<BookingLine> lines = quote.lines().stream()
@@ -377,6 +381,7 @@ public class BookingService {
     booking.applyPaymentBreakdown(quote.equipmentDeposit(), quote.bookingDeposit(), quote.amountDueNow());
     booking.attachIdentityDocuments(claimedDocuments.frontStorageKey(), claimedDocuments.backStorageKey());
     booking.attachPaymentProof(claimedPaymentProof.frontStorageKey());
+    booking.attachBankAccount(claimedBankAccount.frontStorageKey());
     Booking saved = bookings.save(booking);
     operations.replaceReservations(saved, ReservationType.SOFT, "PUBLIC");
     checkoutHolds.deleteById(holdToken);
@@ -447,6 +452,26 @@ public class BookingService {
     }
     audit.record(actor, "BOOKING_" + previousState + "_TO_" + nextState, "BOOKING", saved.getId(), reason);
     return saved;
+  }
+
+  /**
+   * Sau khi kế toán ghi nhận một khoản thanh toán, nếu tiền giữ lịch (cọc 50.000đ) đã
+   * đủ thì tự động duyệt đơn sang "Đã xác nhận" thay vì bắt admin bấm tay. Chỉ áp dụng
+   * cho các đơn còn đang ở nhánh chờ duyệt; đơn đã xác nhận, đã giao hoặc đã từ chối
+   * giữ nguyên trạng thái. Mọi lỗi nghiệp vụ (kho hết hàng, chuyển trạng thái không
+   * hợp lệ) ném ra ApiException để lớp gọi tự quyết định — giao dịch ghi nhận tiền đã
+   * commit ở transaction trước nên không bị ảnh hưởng.
+   */
+  @Transactional
+  public void autoConfirmAfterDeposit(String bookingId, String actor) {
+    Booking booking = bookings.findByIdWithItemsForUpdate(bookingId).orElse(null);
+    if (booking == null) return;
+    if (!AUTO_CONFIRMABLE_STATES.contains(booking.getState())) return;
+    BigDecimal required = booking.getAmountDueNow();
+    if (required == null || required.signum() <= 0) return;
+    if (financeSettlement.reservationDepositPaid(bookingId).compareTo(required) < 0) return;
+    transition(bookingId, BookingState.CONFIRMED,
+        "Tự động xác nhận: đã ghi nhận đủ tiền giữ lịch " + required.toPlainString() + "đ.", actor);
   }
 
   @Transactional
@@ -587,6 +612,14 @@ public class BookingService {
     return identityDocuments.read(booking.getPaymentProofReference());
   }
 
+  public IdentityDocumentService.StoredImage bankAccountProof(String bookingId) {
+    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    if (booking.getBankAccountReference() == null) {
+      throw ApiException.notFound("Đơn này chưa có ảnh tài khoản ngân hàng.");
+    }
+    return identityDocuments.read(booking.getBankAccountReference());
+  }
+
   private Booking requireCustomerBooking(String bookingId, String phoneNormalized) {
     Booking booking = bookings.findById(bookingId)
         .orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
@@ -685,6 +718,7 @@ public class BookingService {
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
                                LocalDateTime earlyPickupTime, String identityUploadToken, String paymentProofUploadToken,
+                               String bankAccountUploadToken,
                                String holdToken, String promotionCode, String storeBranchId, String rentalRate) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}
 
