@@ -23,7 +23,7 @@ jobs:
       - run: mvn -B verify
       - run: docker build --tag booking-review-api:security-scan .
       - name: Scan container image
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: booking-review-api:security-scan
           format: table
