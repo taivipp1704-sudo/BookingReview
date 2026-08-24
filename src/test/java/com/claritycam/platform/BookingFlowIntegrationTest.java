@@ -603,6 +603,7 @@ class BookingFlowIntegrationTest {
     String verificationToken = objectMapper.readTree(verify.getResponse().getContentAsString()).path("verificationToken").asText();
     String identityUploadToken = uploadIdentity(csrf, customerSession);
     String paymentProofUploadToken = uploadPaymentProof(csrf, customerSession);
+    String bankAccountUploadToken = uploadBankAccount(csrf, customerSession);
     LocalDateTime pickup = LocalDateTime.now().plusDays(30).withHour(10).withMinute(0).withSecond(0).withNano(0);
     LocalDateTime returnAt = pickup.plusDays(2);
     LocalDateTime invalidEarlyPickup = pickup.minusDays(1).withHour(20);
@@ -624,7 +625,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"" + pickup + "\",\"returnTime\":\"" + returnAt + "\",\"earlyPickupTime\":\"" + invalidEarlyPickup + "\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"paymentProofUploadToken\":\"" + paymentProofUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
+            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"" + pickup + "\",\"returnTime\":\"" + returnAt + "\",\"earlyPickupTime\":\"" + invalidEarlyPickup + "\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"paymentProofUploadToken\":\"" + paymentProofUploadToken + "\",\"bankAccountUploadToken\":\"" + bankAccountUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
         .andExpect(status().isBadRequest());
 
     MvcResult bookingResult = mockMvc.perform(post("/api/bookings")
@@ -632,7 +633,7 @@ class BookingFlowIntegrationTest {
             .cookie(csrf.cookie())
             .header("X-XSRF-TOKEN", csrf.token())
             .contentType(APPLICATION_JSON)
-            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"" + pickup + "\",\"returnTime\":\"" + returnAt + "\",\"earlyPickupTime\":\"" + validEarlyPickup + "\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"paymentProofUploadToken\":\"" + paymentProofUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
+            .content("{\"customerName\":\"Nguyễn Văn A\",\"phone\":\"0901234567\",\"pickupTime\":\"" + pickup + "\",\"returnTime\":\"" + returnAt + "\",\"earlyPickupTime\":\"" + validEarlyPickup + "\",\"note\":\"Integration test\",\"holdToken\":\"" + holdToken + "\",\"identityUploadToken\":\"" + identityUploadToken + "\",\"paymentProofUploadToken\":\"" + paymentProofUploadToken + "\",\"bankAccountUploadToken\":\"" + bankAccountUploadToken + "\",\"items\":[{\"productId\":\"GEAR-001\",\"quantity\":1}]}"))
         .andExpect(status().isCreated())
         .andReturn();
     String bookingId = objectMapper.readTree(bookingResult.getResponse().getContentAsString()).path("id").asText();
@@ -976,6 +977,17 @@ class BookingFlowIntegrationTest {
     ImageIO.write(image, "jpg", output);
     MockMultipartFile proof = new MockMultipartFile("file", "payment-proof.jpg", "image/jpeg", output.toByteArray());
     MvcResult result = mockMvc.perform(multipart("/api/customer/account/payment-proof")
+            .file(proof).session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token()))
+        .andExpect(status().isOk()).andReturn();
+    return objectMapper.readTree(result.getResponse().getContentAsString()).path("uploadToken").asText();
+  }
+
+  private String uploadBankAccount(Csrf csrf, MockHttpSession session) throws Exception {
+    BufferedImage image = new BufferedImage(720, 1280, BufferedImage.TYPE_INT_RGB);
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    ImageIO.write(image, "jpg", output);
+    MockMultipartFile proof = new MockMultipartFile("file", "bank-account.jpg", "image/jpeg", output.toByteArray());
+    MvcResult result = mockMvc.perform(multipart("/api/customer/account/bank-account")
             .file(proof).session(session).cookie(csrf.cookie()).header("X-XSRF-TOKEN", csrf.token()))
         .andExpect(status().isOk()).andReturn();
     return objectMapper.readTree(result.getResponse().getContentAsString()).path("uploadToken").asText();
