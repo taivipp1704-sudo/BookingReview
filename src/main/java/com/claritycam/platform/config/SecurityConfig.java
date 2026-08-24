@@ -116,7 +116,8 @@ public class SecurityConfig {
                 "/api/customer/account/onboarding/complete",
                 "/api/customer/account/password/change",
                 "/api/customer/account/identity-documents",
-                "/api/customer/account/payment-proof").permitAll()
+                "/api/customer/account/payment-proof",
+                "/api/customer/account/bank-account").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
             .requestMatchers("/api/admin/customer-accounts/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")
