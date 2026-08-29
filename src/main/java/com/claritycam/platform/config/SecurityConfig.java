@@ -103,6 +103,7 @@ public class SecurityConfig {
                 "/api/customer/account/bookings",
                 "/api/customer/account/bookings/*/identity/*",
                 "/api/customer/account/bookings/*/payment-proof",
+                "/api/customer/account/bookings/*/feedback",
                 "/api/bookings/holds",
                 "/api/bookings/holds/*").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/customer/waitlist", "/api/auth/login", "/api/otp/**",
@@ -111,14 +112,19 @@ public class SecurityConfig {
                 "/api/bookings/track", "/api/customer/support").permitAll()
             .requestMatchers(HttpMethod.POST,
                 "/api/customer/account/login",
+                "/api/customer/account/login-pin",
                 "/api/customer/account/register",
                 "/api/customer/account/logout",
                 "/api/customer/account/onboarding/complete",
                 "/api/customer/account/password/change",
+                "/api/customer/account/pin",
+                "/api/customer/account/pin/disable",
+                "/api/customer/account/bookings/*/feedback",
                 "/api/customer/account/identity-documents",
                 "/api/customer/account/payment-proof",
                 "/api/customer/account/bank-account").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
+            .requestMatchers("/api/admin/feedback/**").hasAnyRole("ADMIN", "MANAGER", "SALES", "OPS")
             .requestMatchers("/api/admin/customer-accounts/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/inventory/**").hasAnyRole("ADMIN", "MANAGER", "WAREHOUSE", "TECH")

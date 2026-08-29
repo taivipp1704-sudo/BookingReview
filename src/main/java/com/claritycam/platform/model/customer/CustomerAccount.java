@@ -9,11 +9,18 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "customer_accounts")
 public class CustomerAccount {
+  /** Sau ngần này lần nhập sai PIN liên tiếp, PIN bị vô hiệu hoá và khách phải
+   * đăng nhập lại bằng mật khẩu đầy đủ rồi đặt PIN mới (bảo vệ không gian mã 6 số
+   * nhỏ trước tấn công dò mã, bổ sung cho giới hạn tần suất ở RateLimitService). */
+  public static final int PIN_MAX_FAILED_ATTEMPTS = 5;
+
   @Id private String id;
   @Column(unique = true, nullable = false) private String phoneNormalized;
   @Column(nullable = false) private String name;
   @Column(unique = true, length = 255) private String email;
   @Column(length = 100) private String passwordHash;
+  @Column(length = 100) private String pinHash;
+  @Column(nullable = false) private int pinFailedAttempts;
   @Column(nullable = false) private boolean active = true;
   @Column(nullable = false) private boolean mustChangePassword;
   private LocalDateTime createdAt;
@@ -59,6 +66,32 @@ public class CustomerAccount {
     this.mustChangePassword = false;
   }
 
+  /** Đặt hoặc đổi PIN đăng nhập nhanh. Không đụng đến mật khẩu đầy đủ — cả hai
+   * cùng tồn tại song song, khách dùng cái nào tuỳ ý. */
+  public void setPinHash(String pinHash) {
+    this.pinHash = pinHash;
+    this.pinFailedAttempts = 0;
+  }
+
+  public void disablePin() {
+    this.pinHash = null;
+    this.pinFailedAttempts = 0;
+  }
+
+  public void registerPinSuccess() {
+    this.pinFailedAttempts = 0;
+  }
+
+  /** @return true nếu PIN vừa bị vô hiệu hoá do nhập sai quá số lần cho phép. */
+  public boolean registerPinFailure() {
+    this.pinFailedAttempts++;
+    if (this.pinFailedAttempts >= PIN_MAX_FAILED_ATTEMPTS) {
+      disablePin();
+      return true;
+    }
+    return false;
+  }
+
   public void resetOnboarding() {
     this.onboardingVersion = 0;
     this.onboardingCompletedAt = null;
@@ -74,6 +107,8 @@ public class CustomerAccount {
   public String getName() { return name; }
   public String getEmail() { return email; }
   public String getPasswordHash() { return passwordHash; }
+  public String getPinHash() { return pinHash; }
+  public boolean hasPin() { return pinHash != null; }
   public boolean isActive() { return active; }
   public boolean isMustChangePassword() { return mustChangePassword; }
   public LocalDateTime getCreatedAt() { return createdAt; }

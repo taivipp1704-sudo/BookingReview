@@ -2,12 +2,14 @@ package com.claritycam.platform.controller.customer;
 
 import com.claritycam.platform.model.customer.CustomerAccount;
 import com.claritycam.platform.model.finance.Payment;
+import com.claritycam.platform.service.booking.BookingFeedbackService;
 import com.claritycam.platform.service.booking.BookingService;
 import com.claritycam.platform.service.customer.CustomerAccountService;
 import com.claritycam.platform.service.customer.CustomerWaitlistService;
 import com.claritycam.platform.service.customer.IdentityDocumentService;
 import com.claritycam.platform.service.audit.AuditService;
 import com.claritycam.platform.model.booking.Booking;
+import com.claritycam.platform.model.booking.BookingFeedback;
 import com.claritycam.platform.model.booking.BookingLine;
 import com.claritycam.platform.model.booking.BookingState;
 import com.claritycam.platform.model.catalog.Product;
@@ -17,12 +19,15 @@ import com.claritycam.platform.service.common.ClientAddressResolver;
 import com.claritycam.platform.service.common.ReleaseFeatureService;
 import com.claritycam.platform.service.otp.OtpService;
 import com.claritycam.platform.config.PasswordPolicy;
+import com.claritycam.platform.config.PinPolicy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -57,6 +62,7 @@ public class CustomerAccountController {
   private final ReleaseFeatureService releaseFeatures;
   private final CustomerWaitlistService waitlist;
   private final ProductRepository products;
+  private final BookingFeedbackService feedbackService;
   public CustomerAccountController(
       CustomerAccountService service,
       IdentityDocumentService identityDocuments,
@@ -66,7 +72,8 @@ public class CustomerAccountController {
       ClientAddressResolver clientAddressResolver,
       ReleaseFeatureService releaseFeatures,
       CustomerWaitlistService waitlist,
-      ProductRepository products) {
+      ProductRepository products,
+      BookingFeedbackService feedbackService) {
     this.service = service;
     this.identityDocuments = identityDocuments;
     this.bookingService = bookingService;
@@ -76,6 +83,7 @@ public class CustomerAccountController {
     this.releaseFeatures = releaseFeatures;
     this.waitlist = waitlist;
     this.products = products;
+    this.feedbackService = feedbackService;
   }
 
   @PostMapping(value = "/identity-documents", consumes = "multipart/form-data")
@@ -115,6 +123,18 @@ public class CustomerAccountController {
     rateLimit.check("customer-login:phone:" + phone, 8, Duration.ofMinutes(15));
     rateLimit.check("customer-login:ip:" + clientAddressResolver.resolve(servletRequest), 20, Duration.ofMinutes(15));
     CustomerAccount account = service.login(request.phone(), request.password());
+    establishSession(account, servletRequest);
+    return AccountResponse.from(account);
+  }
+
+  @PostMapping("/login-pin")
+  AccountResponse loginWithPin(@Valid @RequestBody PinLoginRequest request, HttpServletRequest servletRequest) {
+    String phone = OtpService.normalizePhone(request.phone());
+    // Ngưỡng thấp hơn đăng nhập mật khẩu vì không gian mã PIN chỉ có 1 triệu tổ hợp;
+    // CustomerAccount.registerPinFailure() còn tự vô hiệu hoá PIN sau nhiều lần sai liên tiếp.
+    rateLimit.check("customer-login-pin:phone:" + phone, 5, Duration.ofMinutes(15));
+    rateLimit.check("customer-login-pin:ip:" + clientAddressResolver.resolve(servletRequest), 15, Duration.ofMinutes(15));
+    CustomerAccount account = service.loginWithPin(request.phone(), request.pin());
     establishSession(account, servletRequest);
     return AccountResponse.from(account);
   }
@@ -186,6 +206,44 @@ public class CustomerAccountController {
     return AccountResponse.from(account);
   }
 
+  @PostMapping("/pin")
+  AccountResponse setPin(@Valid @RequestBody SetPinRequest body, HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("customer-pin-set:phone:" + phone, 5, Duration.ofHours(1));
+    rateLimit.check("customer-pin-set:ip:" + clientAddressResolver.resolve(request), 15, Duration.ofHours(1));
+    CustomerAccount account = service.setPin(phone, body.currentPassword(), body.pin());
+    auditService.record("customer:" + phone, "CUSTOMER_PIN_SET", "CUSTOMER_ACCOUNT", account.getId(), "SELF_SERVICE");
+    return AccountResponse.from(account);
+  }
+
+  @PostMapping("/pin/disable")
+  AccountResponse disablePin(@Valid @RequestBody DisablePinRequest body, HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("customer-pin-disable:phone:" + phone, 5, Duration.ofHours(1));
+    CustomerAccount account = service.disablePin(phone, body.currentPassword());
+    auditService.record("customer:" + phone, "CUSTOMER_PIN_DISABLED", "CUSTOMER_ACCOUNT", account.getId(), "SELF_SERVICE");
+    return AccountResponse.from(account);
+  }
+
+  @PostMapping("/bookings/{id}/feedback")
+  FeedbackResponse submitFeedback(@PathVariable String id, @Valid @RequestBody FeedbackRequest body,
+      HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("customer-feedback:phone:" + phone, 20, Duration.ofHours(1));
+    BookingFeedback feedback = feedbackService.submit(id, phone, body.rating(), body.comment());
+    auditService.record("customer:" + phone, "BOOKING_FEEDBACK_SUBMITTED", "BOOKING", id,
+        "rating=" + feedback.getRating());
+    return FeedbackResponse.from(feedback);
+  }
+
+  @GetMapping("/bookings/{id}/feedback")
+  ResponseEntity<FeedbackResponse> myFeedback(@PathVariable String id, HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    return feedbackService.forBooking(id, phone)
+        .map(feedback -> ResponseEntity.ok(FeedbackResponse.from(feedback)))
+        .orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
   @PostMapping("/logout")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   void logout(HttpServletRequest request, HttpServletResponse response) {
@@ -210,6 +268,9 @@ public class CustomerAccountController {
   public record LoginRequest(
       @NotBlank @Size(max = 20) String phone,
       @NotBlank @Size(min = 8, max = 72) String password) {}
+  public record PinLoginRequest(
+      @NotBlank @Size(max = 20) String phone,
+      @NotBlank @Pattern(regexp = PinPolicy.REGEX, message = PinPolicy.MESSAGE) String pin) {}
   public record RegisterRequest(
       @NotBlank @Size(max = 20) String phone,
       @NotBlank @Size(max = 180) String name,
@@ -220,14 +281,26 @@ public class CustomerAccountController {
       @NotBlank @Size(min = 8, max = 128) String currentPassword,
       @NotBlank @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
       String newPassword) {}
+  public record SetPinRequest(
+      @NotBlank @Size(min = 8, max = 128) String currentPassword,
+      @NotBlank @Pattern(regexp = PinPolicy.REGEX, message = PinPolicy.MESSAGE) String pin) {}
+  public record DisablePinRequest(@NotBlank @Size(min = 8, max = 128) String currentPassword) {}
+  public record FeedbackRequest(@Min(1) @Max(5) int rating, @Size(max = 2000) String comment) {}
   public record IdentityDocumentResponse(String uploadToken, LocalDateTime expiresAt) {}
+  public record FeedbackResponse(String id, String bookingId, int rating, String comment,
+                                 LocalDateTime createdAt, LocalDateTime updatedAt) {
+    static FeedbackResponse from(BookingFeedback feedback) {
+      return new FeedbackResponse(feedback.getId(), feedback.getBookingId(), feedback.getRating(),
+          feedback.getComment(), feedback.getCreatedAt(), feedback.getUpdatedAt());
+    }
+  }
   public record AccountResponse(String id, String name, String email, String phone, boolean active,
                                 boolean mustChangePassword, int onboardingVersion,
-                                LocalDateTime onboardingCompletedAt) {
+                                LocalDateTime onboardingCompletedAt, boolean pinConfigured) {
     static AccountResponse from(CustomerAccount account) {
       return new AccountResponse(account.getId(), account.getName(), account.getEmail(),
           account.getPhoneNormalized(), account.isActive(), account.isMustChangePassword(),
-          account.getOnboardingVersion(), account.getOnboardingCompletedAt());
+          account.getOnboardingVersion(), account.getOnboardingCompletedAt(), account.hasPin());
     }
   }
   public record AccountBookingResponse(String id, BookingState state, BigDecimal subtotalAmount, BigDecimal discountAmount,

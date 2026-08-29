@@ -4,7 +4,6 @@ import com.claritycam.platform.model.booking.Booking;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 public final class RentalPricing {
   private static final long MINUTES_PER_HOUR = 60;
@@ -52,8 +51,7 @@ public final class RentalPricing {
           BigDecimal base = multiDay.signum() > 0
               ? multiDay
               : daily.multiply(BigDecimal.valueOf(packageDays));
-          int selectedDays = Math.max(packageDays,
-              Math.toIntExact(ChronoUnit.DAYS.between(pickupTime.toLocalDate(), returnTime.toLocalDate())));
+          int selectedDays = Math.max(packageDays, Math.toIntExact(ceilDivide(minutes, MINUTES_PER_DAY)));
           int extraDays = Math.max(0, selectedDays - packageDays);
           BigDecimal extraRate = extraDay.signum() > 0 ? extraDay : daily;
           yield new Charge("MULTI_DAY", base, 1, extraDays,
@@ -117,8 +115,7 @@ public final class RentalPricing {
           BigDecimal base = multiDay.signum() > 0
               ? multiDay
               : daily.multiply(BigDecimal.valueOf(packageDays));
-          int selectedDays = Math.max(packageDays,
-              Math.toIntExact(ChronoUnit.DAYS.between(pickupTime.toLocalDate(), returnTime.toLocalDate())));
+          int selectedDays = Math.max(packageDays, Math.toIntExact(ceilDivide(minutes, MINUTES_PER_DAY)));
           int extraDays = Math.max(0, selectedDays - packageDays);
           yield new Charge("MULTI_DAY", base, 1, extraDays,
               base.add(daily.multiply(BigDecimal.valueOf(extraDays))));

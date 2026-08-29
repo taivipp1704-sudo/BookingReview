@@ -46,6 +46,49 @@ public class CustomerAccountService {
   }
 
   @Transactional
+  public CustomerAccount loginWithPin(String phone, String pin) {
+    String normalized = OtpService.normalizePhone(phone);
+    CustomerAccount account = accounts.findByPhoneNormalized(normalized)
+        .orElseThrow(() -> ApiException.unauthorized("Số điện thoại hoặc mã PIN không đúng."));
+    if (!account.isActive() || !account.hasPin()
+        || !passwordEncoder.matches(pin, account.getPinHash())) {
+      if (account.hasPin() && account.isActive()) {
+        account.registerPinFailure();
+        accounts.save(account);
+      }
+      throw ApiException.unauthorized("Số điện thoại hoặc mã PIN không đúng.");
+    }
+    account.registerPinSuccess();
+    account.login(null);
+    if (account.getOnboardingVersion() < 1 && bookings.existsByPhoneNormalized(normalized)) {
+      account.completeOnboarding(1);
+    }
+    return accounts.save(account);
+  }
+
+  @Transactional
+  public CustomerAccount setPin(String phone, String currentPassword, String pin) {
+    CustomerAccount account = require(phone);
+    if (account.getPasswordHash() == null
+        || !passwordEncoder.matches(currentPassword, account.getPasswordHash())) {
+      throw ApiException.badRequest("Mật khẩu hiện tại không đúng.");
+    }
+    account.setPinHash(passwordEncoder.encode(pin));
+    return accounts.save(account);
+  }
+
+  @Transactional
+  public CustomerAccount disablePin(String phone, String currentPassword) {
+    CustomerAccount account = require(phone);
+    if (account.getPasswordHash() == null
+        || !passwordEncoder.matches(currentPassword, account.getPasswordHash())) {
+      throw ApiException.badRequest("Mật khẩu hiện tại không đúng.");
+    }
+    account.disablePin();
+    return accounts.save(account);
+  }
+
+  @Transactional
   public CustomerAccount register(String phone, String name, String password) {
     return register(phone, name, null, password);
   }
