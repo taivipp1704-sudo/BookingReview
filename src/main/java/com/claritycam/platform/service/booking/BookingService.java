@@ -328,6 +328,9 @@ public class BookingService {
             "Thời gian nhận sớm phải từ 21:00 ngày trước và trước thời gian nhận máy chính thức.");
       }
     }
+    if (request.lateReturnTime() != null && !request.lateReturnTime().isAfter(request.returnTime())) {
+      throw ApiException.badRequest("Thời gian trả trễ phải sau thời gian trả máy đã chọn.");
+    }
     purgeExpiredHolds();
     String holdToken = normalizeToken(request.holdToken());
     CheckoutHoldReservation hold = holdToken == null ? null : checkoutHolds.findById(holdToken).orElse(null);
@@ -377,6 +380,7 @@ public class BookingService {
     booking.assignStoreBranch(storeBranch.getId(), storeBranch.getCode(), storeBranch.getName(),
         storeBranch.getAddress());
     booking.requestEarlyPickup(request.earlyPickupTime());
+    booking.requestLateReturn(request.lateReturnTime());
     booking.applyPromotion(quote.subtotalAmount(), quote.discountAmount(), quote.promotionCode());
     booking.applyPaymentBreakdown(quote.equipmentDeposit(), quote.bookingDeposit(), quote.amountDueNow());
     booking.attachIdentityDocuments(claimedDocuments.frontStorageKey(), claimedDocuments.backStorageKey());
@@ -510,6 +514,17 @@ public class BookingService {
     Booking saved = bookings.save(booking);
     String note = (reason == null ? "" : reason.trim()) + (approved ? " | Phí: " + booking.getEarlyPickupFee() : "");
     audit.record(actor, approved ? "EARLY_PICKUP_APPROVED" : "EARLY_PICKUP_REJECTED", "BOOKING", id, note);
+    return saved;
+  }
+
+  @Transactional
+  public Booking reviewLateReturn(String id, boolean approved, BigDecimal fee, String reason, String actor) {
+    Booking booking = bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    if (!booking.isLateReturnRequested()) throw ApiException.badRequest("Đơn không có yêu cầu trả máy trễ.");
+    booking.reviewLateReturn(approved, fee, reason);
+    Booking saved = bookings.save(booking);
+    String note = (reason == null ? "" : reason.trim()) + (approved ? " | Phí: " + booking.getLateReturnFee() : "");
+    audit.record(actor, approved ? "LATE_RETURN_APPROVED" : "LATE_RETURN_REJECTED", "BOOKING", id, note);
     return saved;
   }
 
@@ -717,7 +732,8 @@ public class BookingService {
                              String paymentProofUploadToken, Quote quote) {}
   public record SubmitRequest(String customerName, String phone, String bundleId, LocalDateTime pickupTime,
                               LocalDateTime returnTime, String note, List<ItemRequest> items,
-                               LocalDateTime earlyPickupTime, String identityUploadToken, String paymentProofUploadToken,
+                               LocalDateTime earlyPickupTime, LocalDateTime lateReturnTime,
+                               String identityUploadToken, String paymentProofUploadToken,
                                String bankAccountUploadToken,
                                String holdToken, String promotionCode, String storeBranchId, String rentalRate) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}

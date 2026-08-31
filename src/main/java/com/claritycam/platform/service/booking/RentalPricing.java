@@ -2,6 +2,7 @@ package com.claritycam.platform.service.booking;
 
 import com.claritycam.platform.model.booking.Booking;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -59,6 +60,13 @@ public final class RentalPricing {
         }
         default -> throw new IllegalArgumentException("Unsupported rental pricing mode: " + requestedMode);
       };
+    }
+
+    // Cuối tuần (Thứ 7, Chủ Nhật) nhận và trả trong cùng một ngày luôn tính trọn
+    // 1 ngày thuê, không áp dụng giá nửa ngày/theo giờ dù thời lượng thực tế ngắn
+    // hơn — nhu cầu thuê trong ngày cuối tuần cao nên không giảm giá theo giờ.
+    if (isSameDayWeekend(pickupTime, returnTime)) {
+      return new Charge("DAILY", daily, 1, 0, daily);
     }
 
     if (minutes <= 12 * MINUTES_PER_HOUR && (hourly.signum() > 0 || halfDay.signum() > 0)) {
@@ -124,6 +132,10 @@ public final class RentalPricing {
       };
     }
 
+    if (isSameDayWeekend(pickupTime, returnTime)) {
+      return new Charge("DAILY", daily, 1, 0, daily);
+    }
+
     if (minutes < MINUTES_PER_DAY && hourly.signum() > 0) {
       long hours = ceilDivide(minutes, MINUTES_PER_HOUR);
       return new Charge("HOURLY", hourly, hours, 0, hourly.multiply(BigDecimal.valueOf(hours)));
@@ -139,6 +151,12 @@ public final class RentalPricing {
     }
 
     return new Charge("DAILY", daily, days, 0, daily.multiply(BigDecimal.valueOf(days)));
+  }
+
+  private static boolean isSameDayWeekend(LocalDateTime pickupTime, LocalDateTime returnTime) {
+    if (!pickupTime.toLocalDate().equals(returnTime.toLocalDate())) return false;
+    DayOfWeek day = pickupTime.getDayOfWeek();
+    return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
   }
 
   private static BigDecimal nonNegative(BigDecimal value) {

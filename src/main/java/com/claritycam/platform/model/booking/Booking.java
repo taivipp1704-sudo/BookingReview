@@ -42,6 +42,11 @@ public class Booking {
   private LocalDateTime earlyPickupTime;
   private boolean earlyPickupApproved;
   private BigDecimal earlyPickupFee;
+  private boolean lateReturnRequested;
+  private LocalDateTime lateReturnTime;
+  private boolean lateReturnApproved;
+  @Column(precision = 19, scale = 2)
+  private BigDecimal lateReturnFee;
   private boolean kycApproved;
   private String identityFrontReference;
   private String identityBackReference;
@@ -99,6 +104,9 @@ public class Booking {
     this.earlyPickupRequested = false;
     this.earlyPickupApproved = false;
     this.earlyPickupFee = BigDecimal.ZERO;
+    this.lateReturnRequested = false;
+    this.lateReturnApproved = false;
+    this.lateReturnFee = BigDecimal.ZERO;
     this.kycApproved = false;
     this.bundleId = bundleId;
     this.note = note == null ? "" : note.trim();
@@ -138,6 +146,25 @@ public class Booking {
     this.updatedAt = LocalDateTime.now();
   }
 
+  public void requestLateReturn(LocalDateTime requestedTime) {
+    if (requestedTime != null && !requestedTime.isAfter(returnTime)) {
+      throw new IllegalArgumentException("Thời gian trả trễ phải sau thời gian trả máy đã chọn.");
+    }
+    this.lateReturnRequested = requestedTime != null;
+    this.lateReturnTime = requestedTime;
+  }
+
+  public void reviewLateReturn(boolean approved, BigDecimal fee, String reason) {
+    BigDecimal previousFee = this.lateReturnFee == null ? BigDecimal.ZERO : this.lateReturnFee;
+    this.totalAmount = this.totalAmount.subtract(previousFee);
+    this.lateReturnApproved = approved;
+    this.lateReturnFee = approved && fee != null ? fee.max(BigDecimal.ZERO) : BigDecimal.ZERO;
+    this.totalAmount = this.totalAmount.add(this.lateReturnFee);
+    this.amountDueNow = getBookingDeposit();
+    this.lastActionReason = reason == null ? "" : reason.trim();
+    this.updatedAt = LocalDateTime.now();
+  }
+
   public String getId() { return id; }
   public String getCustomerName() { return customerName; }
   public String getPhone() { return phone; }
@@ -163,6 +190,10 @@ public class Booking {
   public LocalDateTime getEarlyPickupTime() { return earlyPickupTime; }
   public boolean isEarlyPickupApproved() { return earlyPickupApproved; }
   public BigDecimal getEarlyPickupFee() { return earlyPickupFee == null ? BigDecimal.ZERO : earlyPickupFee; }
+  public boolean isLateReturnRequested() { return lateReturnRequested; }
+  public LocalDateTime getLateReturnTime() { return lateReturnTime; }
+  public boolean isLateReturnApproved() { return lateReturnApproved; }
+  public BigDecimal getLateReturnFee() { return lateReturnFee == null ? BigDecimal.ZERO : lateReturnFee; }
   public boolean isKycApproved() { return kycApproved; }
   public String getIdentityFrontReference() { return identityFrontReference; }
   public String getIdentityBackReference() { return identityBackReference; }

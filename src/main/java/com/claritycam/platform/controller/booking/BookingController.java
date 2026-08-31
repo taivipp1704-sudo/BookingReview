@@ -122,7 +122,7 @@ public class BookingController {
     String sessionPhone = requireCustomerPhone(servletRequest);
     Booking booking = bookingService.submit(new BookingService.SubmitRequest(
         request.customerName(), request.phone(), request.bundleId(), request.pickupTime(), request.returnTime(),
-        request.note(), toItems(request.items()), request.earlyPickupTime(),
+        request.note(), toItems(request.items()), request.earlyPickupTime(), request.lateReturnTime(),
         request.identityUploadToken(), request.paymentProofUploadToken(), request.bankAccountUploadToken(),
         request.holdToken(), request.promotionCode(),
         request.storeBranchId(), request.rentalRate()),
@@ -217,6 +217,14 @@ public class BookingController {
         id, request.approved(), request.fee(), request.reason(), authentication.getName()));
   }
 
+  @PatchMapping("/api/admin/bookings/{id}/late-return")
+  @PreAuthorize("hasAnyRole('ADMIN','MANAGER','OPS','SALES')")
+  AdminBookingResponse reviewLateReturn(@PathVariable String id, @Valid @RequestBody LateReturnReviewRequest request,
+      Authentication authentication) {
+    return AdminBookingResponse.from(bookingService.reviewLateReturn(
+        id, request.approved(), request.fee(), request.reason(), authentication.getName()));
+  }
+
   @GetMapping("/api/admin/bookings/{id}/operations")
   BookingOperationsService.OperationsSnapshot operations(@PathVariable String id) {
     return bookingService.operations(id);
@@ -258,6 +266,7 @@ public class BookingController {
       @Size(max = 1000) String note,
       @NotEmpty List<@Valid BookingItemRequest> items,
       LocalDateTime earlyPickupTime,
+      LocalDateTime lateReturnTime,
       @NotBlank String identityUploadToken,
       @NotBlank String paymentProofUploadToken,
       @NotBlank String bankAccountUploadToken,
@@ -278,6 +287,8 @@ public class BookingController {
   public record ChangeStateRequest(@NotNull BookingState state, @Size(max = 500) String reason) {}
   public record EarlyPickupReviewRequest(boolean approved, @DecimalMin("0") BigDecimal fee,
                                          @Size(max = 500) String reason) {}
+  public record LateReturnReviewRequest(boolean approved, @DecimalMin("0") BigDecimal fee,
+                                        @Size(max = 500) String reason) {}
 
   public record PublicBookingResponse(String id, BookingState state, BigDecimal subtotalAmount, BigDecimal discountAmount,
                                       BigDecimal totalAmount, BigDecimal depositRequired, BigDecimal equipmentDeposit,
@@ -338,6 +349,10 @@ public class BookingController {
       LocalDateTime earlyPickupTime,
       boolean earlyPickupApproved,
       BigDecimal earlyPickupFee,
+      boolean lateReturnRequested,
+      LocalDateTime lateReturnTime,
+      boolean lateReturnApproved,
+      BigDecimal lateReturnFee,
       boolean identityDocumentsAvailable,
       boolean paymentProofAvailable,
       boolean bankAccountAvailable,
@@ -355,7 +370,10 @@ public class BookingController {
           booking.getPickupTime(), booking.getReturnTime(), booking.getPromotionCode(),
           booking.getNote(), booking.getLastActionReason(), booking.getCreatedAt(),
           booking.isEarlyPickupRequested(), booking.getEarlyPickupTime(), booking.isEarlyPickupApproved(),
-          booking.getEarlyPickupFee(), booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
+          booking.getEarlyPickupFee(),
+          booking.isLateReturnRequested(), booking.getLateReturnTime(), booking.isLateReturnApproved(),
+          booking.getLateReturnFee(),
+          booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
           booking.getPaymentProofReference() != null,
           booking.getBankAccountReference() != null,
           booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
