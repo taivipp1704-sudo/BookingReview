@@ -45,6 +45,15 @@ public class Payment {
     this.allocatedAmount = next;
   }
 
+  /**
+   * Đánh dấu khoản thu này đã bị đảo (ví dụ admin ghi nhận nhầm số tiền và đã đảo
+   * chứng từ kế toán tương ứng). Không xoá bản ghi gốc để giữ lịch sử — chỉ đổi
+   * trạng thái để các phép tính "đã thực nhận"/"còn phải thu" loại khoản này ra.
+   */
+  public void markReversed() {
+    this.status = "REVERSED";
+  }
+
   public String getId() { return id; }
   public String getBookingId() { return bookingId; }
   public String getStatus() { return status; }

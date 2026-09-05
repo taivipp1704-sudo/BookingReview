@@ -248,8 +248,7 @@ public class FinanceSettlementService {
 
   @Transactional(readOnly = true)
   public void assertCheckoutReady(Booking booking) {
-    BigDecimal paid = paymentAllocations.findByBookingIdOrderByAllocatedAtAsc(booking.getId()).stream()
-        .map(PaymentAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal paid = value(paymentAllocations.sumActiveByBooking(booking.getId()));
     if (paid.compareTo(booking.getAmountDueBeforeHandover()) < 0) {
       throw ApiException.badRequest("Chưa đủ tiền thuê và tiền cọc thực nhận. Còn thiếu "
           + booking.getAmountDueBeforeHandover().subtract(paid).setScale(0, RoundingMode.HALF_UP).toPlainString() + "đ.");
@@ -597,6 +596,18 @@ public class FinanceSettlementService {
     ledger.saveAll(reversedEntries);
     original.reverse(actor);
     documents.save(original);
+    // Chứng từ ghi nhận tiền (PAYMENT_RECEIPT) có một Payment gốc đứng sau —
+    // đảo chứng từ kế toán không tự động đảo Payment đó, nên nếu bỏ qua bước này
+    // "Đã thực nhận" trên đơn vẫn coi như đã đủ tiền từ lần ghi nhầm và admin sẽ
+    // không thấy ô để ghi nhận lại số tiền đúng.
+    if ("PAYMENT_RECEIPT".equals(original.getType()) && original.getIdempotencyKey() != null
+        && original.getIdempotencyKey().startsWith("document:")) {
+      String paymentKey = original.getIdempotencyKey().substring("document:".length());
+      payments.findByIdempotencyKey(paymentKey).ifPresent(payment -> {
+        payment.markReversed();
+        payments.save(payment);
+      });
+    }
     outbox.save(event("DOCUMENT", reversal.getId(), "FINANCIAL_DOCUMENT_REVERSED",
         original.getCorrelationId(), "{\"originalDocumentId\":\"" + original.getId() + "\"}"));
     audit.record(actor, "FINANCIAL_DOCUMENT_REVERSED", "FINANCIAL_DOCUMENT", original.getId(), reversal.getId());
@@ -656,7 +667,10 @@ public class FinanceSettlementService {
     Map<String, BigDecimal> recovery = new HashMap<>();
     Map<String, BookingCharge> chargeById = new HashMap<>();
     charges.findAll().forEach(item -> chargeById.put(item.getId(), item));
-    paymentAllocations.findAll().stream().filter(item -> CUSTOMER_RECOVERY.equals(item.getObligationType()))
+    List<String> reversedPaymentIdsForRecovery = payments.findByStatus("REVERSED").stream().map(Payment::getId).toList();
+    paymentAllocations.findAll().stream()
+        .filter(item -> !reversedPaymentIdsForRecovery.contains(item.getPaymentId()))
+        .filter(item -> CUSTOMER_RECOVERY.equals(item.getObligationType()))
         .forEach(item -> {
           BookingCharge charge = chargeById.get(item.getObligationId());
           if (charge != null && charge.getAssetId() != null) {
@@ -678,9 +692,14 @@ public class FinanceSettlementService {
   @Transactional(readOnly = true)
   public BookingFinanceView bookingView(String bookingId) {
     if (!bookings.existsById(bookingId)) throw ApiException.notFound("Không tìm thấy booking.");
+    List<Payment> bookingPayments = payments.findByBookingIdOrderByReceivedAtAsc(bookingId);
+    List<String> reversedPaymentIds = bookingPayments.stream()
+        .filter(payment -> "REVERSED".equals(payment.getStatus())).map(Payment::getId).toList();
+    List<PaymentAllocation> activeAllocations = paymentAllocations.findByBookingIdOrderByAllocatedAtAsc(bookingId).stream()
+        .filter(allocation -> !reversedPaymentIds.contains(allocation.getPaymentId())).toList();
     return new BookingFinanceView(snapshots.findById(bookingId).orElse(null),
-        snapshotLines.findByBookingIdOrderByIdAsc(bookingId), payments.findByBookingIdOrderByReceivedAtAsc(bookingId),
-        paymentAllocations.findByBookingIdOrderByAllocatedAtAsc(bookingId), charges.findByBookingIdOrderByCreatedAtAsc(bookingId),
+        snapshotLines.findByBookingIdOrderByIdAsc(bookingId), bookingPayments,
+        activeAllocations, charges.findByBookingIdOrderByCreatedAtAsc(bookingId),
         settlements.findById(bookingId).orElse(null), refunds.findByBookingIdOrderByRequestedAtAsc(bookingId),
         receivables.findByBookingIdOrderByCreatedAtAsc(bookingId), assetAllocations.findByBookingIdOrderByProductIdAscAssetIdAsc(bookingId),
         ledger.findByBookingIdOrderByPostedAtAsc(bookingId), findings.findByBookingIdAndStateOrderByDetectedAtAsc(bookingId, "OPEN"),
@@ -693,12 +712,15 @@ public class FinanceSettlementService {
         .reduce(BigDecimal.ZERO, BigDecimal::add)
         .subtract(refunds.findAll().stream().filter(item -> "SUCCEEDED".equals(item.getState()))
             .map(RefundRequest::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add));
+    List<String> reversedPaymentIds = payments.findByStatus("REVERSED").stream().map(Payment::getId).toList();
     BigDecimal depositsHeld = paymentAllocations.findAll().stream()
+        .filter(item -> !reversedPaymentIds.contains(item.getPaymentId()))
         .filter(item -> List.of(RESERVATION_DEPOSIT, SECURITY_DEPOSIT).contains(item.getObligationType()))
         .map(PaymentAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)
         .subtract(refunds.findAll().stream().filter(item -> "SUCCEEDED".equals(item.getState()))
             .map(RefundRequest::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)).max(BigDecimal.ZERO);
     BigDecimal unearned = paymentAllocations.findAll().stream()
+        .filter(item -> !reversedPaymentIds.contains(item.getPaymentId()))
         .filter(item -> List.of(RENTAL_PREPAYMENT, EXTENSION_CHARGE).contains(item.getObligationType()))
         .filter(item -> settlements.findById(item.getBookingId()).map(value -> !value.isRevenueRecognized()).orElse(true))
         .map(PaymentAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
