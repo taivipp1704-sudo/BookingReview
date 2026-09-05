@@ -208,7 +208,7 @@ public class FinanceSettlementService {
     String documentId = "DOC-" + compactId();
     String key = "document:" + payment.getIdempotencyKey();
     FinancialDocument document = new FinancialDocument(documentId, payment.getBookingId(), "PAYMENT_RECEIPT",
-        payment.getAmount(), payment.getBookingId(), key, actor, payment.getNote());
+        payment.getAmount(), payment.getId(), key, actor, payment.getNote());
     documents.save(document);
     List<FinancialLedgerEntry> entries = new ArrayList<>();
     entries.add(new FinancialLedgerEntry(documentId, payment.getBookingId(), "CASH_MAIN", "DEBIT",
@@ -600,18 +600,37 @@ public class FinanceSettlementService {
     // đảo chứng từ kế toán không tự động đảo Payment đó, nên nếu bỏ qua bước này
     // "Đã thực nhận" trên đơn vẫn coi như đã đủ tiền từ lần ghi nhầm và admin sẽ
     // không thấy ô để ghi nhận lại số tiền đúng.
-    if ("PAYMENT_RECEIPT".equals(original.getType()) && original.getIdempotencyKey() != null
-        && original.getIdempotencyKey().startsWith("document:")) {
-      String paymentKey = original.getIdempotencyKey().substring("document:".length());
-      payments.findByIdempotencyKey(paymentKey).ifPresent(payment -> {
-        payment.markReversed();
-        payments.save(payment);
-      });
-    }
+    if ("PAYMENT_RECEIPT".equals(original.getType())) reverseLinkedPayment(original);
     outbox.save(event("DOCUMENT", reversal.getId(), "FINANCIAL_DOCUMENT_REVERSED",
         original.getCorrelationId(), "{\"originalDocumentId\":\"" + original.getId() + "\"}"));
     audit.record(actor, "FINANCIAL_DOCUMENT_REVERSED", "FINANCIAL_DOCUMENT", original.getId(), reversal.getId());
     return reversal;
+  }
+
+  private void reverseLinkedPayment(FinancialDocument document) {
+    Payment linkedPayment = null;
+    String documentKey = document.getIdempotencyKey();
+    if (documentKey != null && documentKey.startsWith("document:")) {
+      String paymentKey = documentKey.substring("document:".length());
+      linkedPayment = payments.findByIdempotencyKey(paymentKey)
+          .or(() -> payments.findById(paymentKey))
+          .orElse(null);
+    }
+    if (linkedPayment == null && document.getCorrelationId() != null) {
+      linkedPayment = payments.findById(document.getCorrelationId()).orElse(null);
+    }
+    if (linkedPayment == null) {
+      List<Payment> candidates = payments.findByBookingIdOrderByReceivedAtAsc(document.getBookingId()).stream()
+          .filter(payment -> "SUCCEEDED".equals(payment.getStatus()))
+          .filter(payment -> payment.getAmount().compareTo(document.getTotalDebit()) == 0)
+          .toList();
+      if (candidates.size() == 1) linkedPayment = candidates.getFirst();
+    }
+    if (linkedPayment == null) {
+      throw ApiException.badRequest("Không xác định được khoản thu gốc của chứng từ. Vui lòng đối soát trước khi đảo.");
+    }
+    linkedPayment.markReversed();
+    payments.save(linkedPayment);
   }
 
   @Transactional(readOnly = true)

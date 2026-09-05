@@ -6,6 +6,7 @@ import com.claritycam.platform.model.finance.BookingSettlement;
 import com.claritycam.platform.model.finance.FinancialDocument;
 import com.claritycam.platform.model.finance.OperationalExpense;
 import com.claritycam.platform.model.finance.Payment;
+import com.claritycam.platform.model.finance.PaymentAllocation;
 import com.claritycam.platform.model.finance.RefundRequest;
 import com.claritycam.platform.repository.booking.BookingAllocationRepository;
 import com.claritycam.platform.repository.booking.BookingRepository;
@@ -17,6 +18,7 @@ import com.claritycam.platform.service.finance.FinanceSettlementService;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.claritycam.platform.model.booking.AllocationRole;
 import com.claritycam.platform.model.booking.Booking;
@@ -142,6 +144,14 @@ class FinanceSettlementIntegrationTest {
     assertEquals(original.getId(), reversal.getReversalOfDocumentId());
     assertEquals("REVERSED", documents.findById(original.getId()).orElseThrow().getStatus());
     assertEquals(2, ledger.findByDocumentIdOrderByIdAsc(reversal.getId()).size());
+    assertEquals("REVERSED", finance.bookingView(booking.getId()).payments().getFirst().getStatus());
+    assertTrue(finance.bookingView(booking.getId()).paymentAllocations().isEmpty());
+
+    Payment replacement = finance.recordPayment(booking.getId(), BigDecimal.valueOf(500_000), "BANK_TRANSFER", null,
+        "replacement-payment-" + booking.getId(), "Corrected amount", "TEST");
+    assertEquals("SUCCEEDED", replacement.getStatus());
+    assertEquals(0, BigDecimal.valueOf(500_000).compareTo(finance.bookingView(booking.getId()).paymentAllocations()
+        .stream().map(PaymentAllocation::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add)));
 
     String periodId = YearMonth.now().toString();
     finance.updatePeriod(periodId, "HARD_LOCKED", "TEST");
