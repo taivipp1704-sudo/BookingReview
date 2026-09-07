@@ -331,6 +331,18 @@ public class BookingService {
     if (request.lateReturnTime() != null && !request.lateReturnTime().isAfter(request.returnTime())) {
       throw ApiException.badRequest("Thời gian trả trễ phải sau thời gian trả máy đã chọn.");
     }
+    boolean documentDeposit = "DOCUMENTS".equals(request.depositMethod());
+    if (documentDeposit) {
+      if (request.secondaryIdentityType() == null || request.secondaryIdentityType().isBlank()) {
+        throw ApiException.badRequest("Vui lòng chọn loại giấy tờ cọc thứ hai.");
+      }
+      if (request.secondaryIdentityUploadToken() == null || request.secondaryIdentityUploadToken().isBlank()) {
+        throw ApiException.badRequest("Vui lòng tải ảnh giấy tờ cọc thứ hai.");
+      }
+      if (request.socialProfileLink() == null || request.socialProfileLink().isBlank()) {
+        throw ApiException.badRequest("Vui lòng cung cấp link Facebook/Instagram chính chủ.");
+      }
+    }
     purgeExpiredHolds();
     String holdToken = normalizeToken(request.holdToken());
     CheckoutHoldReservation hold = holdToken == null ? null : checkoutHolds.findById(holdToken).orElse(null);
@@ -358,6 +370,8 @@ public class BookingService {
         identityDocuments.claim(request.paymentProofUploadToken(), normalizedPhone);
     IdentityDocumentService.ClaimedDocuments claimedBankAccount =
         identityDocuments.claim(request.bankAccountUploadToken(), normalizedPhone);
+    IdentityDocumentService.ClaimedDocuments claimedSecondaryIdentity = documentDeposit
+        ? identityDocuments.claim(request.secondaryIdentityUploadToken(), normalizedPhone) : null;
     StoreBranch storeBranch = storeBranches.requireForBooking(request.storeBranchId());
 
     List<BookingLine> lines = quote.lines().stream()
@@ -382,10 +396,19 @@ public class BookingService {
     booking.requestEarlyPickup(request.earlyPickupTime());
     booking.requestLateReturn(request.lateReturnTime());
     booking.applyPromotion(quote.subtotalAmount(), quote.discountAmount(), quote.promotionCode());
-    booking.applyPaymentBreakdown(quote.equipmentDeposit(), quote.bookingDeposit(), quote.amountDueNow());
+    // Cọc bằng giấy tờ thay thế hoàn toàn cọc máy bằng tiền mặt (500k -> 0đ);
+    // tiền giữ lịch (bookingDeposit/amountDueNow) không đổi ở cả hai phương án.
+    BigDecimal equipmentDepositToCharge = documentDeposit ? BigDecimal.ZERO : quote.equipmentDeposit();
+    booking.applyPaymentBreakdown(equipmentDepositToCharge, quote.bookingDeposit(), quote.amountDueNow());
     booking.attachIdentityDocuments(claimedDocuments.frontStorageKey(), claimedDocuments.backStorageKey());
     booking.attachPaymentProof(claimedPaymentProof.frontStorageKey());
     booking.attachBankAccount(claimedBankAccount.frontStorageKey());
+    booking.applyDepositMethod(request.depositMethod());
+    if (documentDeposit) {
+      booking.attachSecondaryIdentityDocuments(request.secondaryIdentityType(),
+          claimedSecondaryIdentity.frontStorageKey(), claimedSecondaryIdentity.backStorageKey(),
+          request.socialProfileLink().trim());
+    }
     Booking saved = bookings.save(booking);
     operations.replaceReservations(saved, ReservationType.SOFT, "PUBLIC");
     checkoutHolds.deleteById(holdToken);
@@ -416,6 +439,25 @@ public class BookingService {
       case "front" -> booking.getIdentityFrontReference();
       case "back" -> booking.getIdentityBackReference();
       default -> throw ApiException.badRequest("Mặt CCCD không hợp lệ.");
+    };
+    return identityDocuments.read(reference);
+  }
+
+  public IdentityDocumentService.StoredImage secondaryIdentityDocument(String bookingId, String side) {
+    Booking booking = bookings.findById(bookingId).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    return secondaryIdentityDocument(booking, side);
+  }
+
+  public IdentityDocumentService.StoredImage secondaryIdentityDocumentForCustomer(
+      String bookingId, String phoneNormalized, String side) {
+    return secondaryIdentityDocument(requireCustomerBooking(bookingId, phoneNormalized), side);
+  }
+
+  private IdentityDocumentService.StoredImage secondaryIdentityDocument(Booking booking, String side) {
+    String reference = switch (side.toLowerCase()) {
+      case "front" -> booking.getSecondaryIdentityFrontReference();
+      case "back" -> booking.getSecondaryIdentityBackReference();
+      default -> throw ApiException.badRequest("Mặt giấy tờ không hợp lệ.");
     };
     return identityDocuments.read(reference);
   }
@@ -735,7 +777,9 @@ public class BookingService {
                                LocalDateTime earlyPickupTime, LocalDateTime lateReturnTime,
                                String identityUploadToken, String paymentProofUploadToken,
                                String bankAccountUploadToken,
-                               String holdToken, String promotionCode, String storeBranchId, String rentalRate) {}
+                               String holdToken, String promotionCode, String storeBranchId, String rentalRate,
+                               String depositMethod, String secondaryIdentityType,
+                               String secondaryIdentityUploadToken, String socialProfileLink) {}
   public record ScheduleBlock(LocalDateTime pickupTime, LocalDateTime returnTime, int reservedQuantity) {}
 
 }

@@ -125,7 +125,9 @@ public class BookingController {
         request.note(), toItems(request.items()), request.earlyPickupTime(), request.lateReturnTime(),
         request.identityUploadToken(), request.paymentProofUploadToken(), request.bankAccountUploadToken(),
         request.holdToken(), request.promotionCode(),
-        request.storeBranchId(), request.rentalRate()),
+        request.storeBranchId(), request.rentalRate(),
+        request.depositMethod(), request.secondaryIdentityType(),
+        request.secondaryIdentityUploadToken(), request.socialProfileLink()),
         sessionPhone, clientAddressResolver.resolve(servletRequest));
     servletRequest.getSession(true).setAttribute(CustomerAccountService.SESSION_PHONE, booking.getPhoneNormalized());
     return PublicBookingResponse.from(booking, products);
@@ -179,6 +181,20 @@ public class BookingController {
   ResponseEntity<byte[]> paymentProof(@PathVariable String id, Authentication authentication) {
     var image = bookingService.paymentProof(id);
     auditService.record(authentication.getName(), "PAYMENT_PROOF_VIEWED", "BOOKING", id, "BANK_TRANSFER");
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(image.contentType()))
+        .header("Cache-Control", "no-store, private, max-age=0")
+        .header("Pragma", "no-cache")
+        .header("X-Content-Type-Options", "nosniff")
+        .body(image.bytes());
+  }
+
+  @GetMapping("/api/admin/bookings/{id}/secondary-identity/{side}")
+  @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+  ResponseEntity<byte[]> secondaryIdentityDocument(@PathVariable String id, @PathVariable String side,
+      Authentication authentication) {
+    var image = bookingService.secondaryIdentityDocument(id, side);
+    auditService.record(authentication.getName(), "SECONDARY_IDENTITY_DOCUMENT_VIEWED", "BOOKING", id, side.toLowerCase());
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(image.contentType()))
         .header("Cache-Control", "no-store, private, max-age=0")
@@ -273,7 +289,11 @@ public class BookingController {
       @NotBlank String holdToken,
       String promotionCode,
       String storeBranchId,
-      String rentalRate) {}
+      String rentalRate,
+      String depositMethod,
+      String secondaryIdentityType,
+      String secondaryIdentityUploadToken,
+      String socialProfileLink) {}
 
   public record BookingItemRequest(
       @NotBlank @Size(max = 64) String productId,
@@ -295,6 +315,7 @@ public class BookingController {
                                       BigDecimal bookingDeposit, BigDecimal amountDueNow,
                                       BigDecimal amountDueBeforeHandover, String promotionCode,
                                       LocalDateTime pickupTime, LocalDateTime returnTime, String note,
+                                      String depositMethod, String secondaryIdentityType, String socialProfileLink,
                                       String storeBranchId, String storeBranchCode, String storeBranchName,
                                       String storeBranchAddress,
                                       List<PublicBookingLineResponse> items) {
@@ -307,6 +328,7 @@ public class BookingController {
           booking.getBookingDeposit(), booking.getAmountDueNow(), booking.getAmountDueBeforeHandover(),
           booking.getPromotionCode(),
           booking.getPickupTime(), booking.getReturnTime(), booking.getNote(),
+          booking.getDepositMethod(), booking.getSecondaryIdentityType(), booking.getSocialProfileLink(),
           booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
           booking.getStoreBranchAddress(), booking.getItems().stream()
               .map(line -> PublicBookingLineResponse.from(line, productById.get(line.getProductId())))
@@ -356,6 +378,10 @@ public class BookingController {
       boolean identityDocumentsAvailable,
       boolean paymentProofAvailable,
       boolean bankAccountAvailable,
+      String depositMethod,
+      String secondaryIdentityType,
+      boolean secondaryIdentityDocumentsAvailable,
+      String socialProfileLink,
       String storeBranchId,
       String storeBranchCode,
       String storeBranchName,
@@ -376,6 +402,9 @@ public class BookingController {
           booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
           booking.getPaymentProofReference() != null,
           booking.getBankAccountReference() != null,
+          booking.getDepositMethod(), booking.getSecondaryIdentityType(),
+          booking.getSecondaryIdentityFrontReference() != null && booking.getSecondaryIdentityBackReference() != null,
+          booking.getSocialProfileLink(),
           booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
           booking.getStoreBranchAddress(),
           booking.getItems());

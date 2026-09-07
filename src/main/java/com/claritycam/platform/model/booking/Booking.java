@@ -52,6 +52,14 @@ public class Booking {
   private String identityBackReference;
   private String paymentProofReference;
   private String bankAccountReference;
+  // Phương án cọc: "CASH" (mặc định, cọc máy 500k khi nhận) hoặc "DOCUMENTS"
+  // (cọc 2 giấy tờ thay cho tiền cọc máy — xem RentalPricing/BookingService.submit()
+  // nơi equipmentDeposit được đưa về 0 khi chọn DOCUMENTS).
+  private String depositMethod;
+  private String secondaryIdentityType;
+  private String secondaryIdentityFrontReference;
+  private String secondaryIdentityBackReference;
+  private String socialProfileLink;
   private String bundleId;
   private String promotionCode;
   private String storeBranchId;
@@ -108,6 +116,7 @@ public class Booking {
     this.lateReturnApproved = false;
     this.lateReturnFee = BigDecimal.ZERO;
     this.kycApproved = false;
+    this.depositMethod = "CASH";
     this.bundleId = bundleId;
     this.note = note == null ? "" : note.trim();
     this.createdAt = LocalDateTime.now();
@@ -202,6 +211,20 @@ public class Booking {
   public void attachPaymentProof(String reference) { this.paymentProofReference = reference; }
   public String getBankAccountReference() { return bankAccountReference; }
   public void attachBankAccount(String reference) { this.bankAccountReference = reference; }
+  public String getDepositMethod() { return depositMethod == null ? "CASH" : depositMethod; }
+  public void applyDepositMethod(String method) {
+    this.depositMethod = "DOCUMENTS".equals(method) ? "DOCUMENTS" : "CASH";
+  }
+  public String getSecondaryIdentityType() { return secondaryIdentityType; }
+  public String getSecondaryIdentityFrontReference() { return secondaryIdentityFrontReference; }
+  public String getSecondaryIdentityBackReference() { return secondaryIdentityBackReference; }
+  public String getSocialProfileLink() { return socialProfileLink; }
+  public void attachSecondaryIdentityDocuments(String documentType, String front, String back, String socialProfileLink) {
+    this.secondaryIdentityType = documentType;
+    this.secondaryIdentityFrontReference = front;
+    this.secondaryIdentityBackReference = back;
+    this.socialProfileLink = socialProfileLink;
+  }
   public void applyPromotion(BigDecimal subtotal, BigDecimal discount, String code) {
     this.subtotalAmount = subtotal;
     this.discountAmount = discount == null ? BigDecimal.ZERO : discount;

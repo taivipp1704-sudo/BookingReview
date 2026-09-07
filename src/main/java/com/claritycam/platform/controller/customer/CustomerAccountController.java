@@ -117,6 +117,17 @@ public class CustomerAccountController {
     return new IdentityDocumentResponse(receipt.uploadToken(), receipt.expiresAt());
   }
 
+  @PostMapping(value = "/secondary-identity-documents", consumes = "multipart/form-data")
+  IdentityDocumentResponse uploadSecondaryIdentity(@RequestPart("front") MultipartFile front, @RequestPart("back") MultipartFile back,
+      HttpServletRequest request) {
+    releaseFeatures.requireBookingEnabled();
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    rateLimit.check("secondary-identity:phone:" + phone, 5, Duration.ofHours(1));
+    rateLimit.check("secondary-identity:ip:" + clientAddressResolver.resolve(request), 15, Duration.ofHours(1));
+    IdentityDocumentService.UploadReceipt receipt = identityDocuments.storePair(front, back, phone);
+    return new IdentityDocumentResponse(receipt.uploadToken(), receipt.expiresAt());
+  }
+
   @PostMapping("/login")
   AccountResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
     String phone = OtpService.normalizePhone(request.phone());
@@ -185,6 +196,17 @@ public class CustomerAccountController {
     String phone = service.require(sessionPhone(request)).getPhoneNormalized();
     var image = bookingService.paymentProofForCustomer(id, phone);
     auditService.record("customer:" + phone, "PAYMENT_PROOF_VIEWED", "BOOKING", id, "BANK_TRANSFER");
+    return privateImage(image);
+  }
+
+  @GetMapping("/bookings/{id}/secondary-identity/{side}")
+  ResponseEntity<byte[]> secondaryIdentityDocument(
+      @PathVariable String id,
+      @PathVariable String side,
+      HttpServletRequest request) {
+    String phone = service.require(sessionPhone(request)).getPhoneNormalized();
+    var image = bookingService.secondaryIdentityDocumentForCustomer(id, phone, side);
+    auditService.record("customer:" + phone, "SECONDARY_IDENTITY_DOCUMENT_VIEWED", "BOOKING", id, side.toLowerCase());
     return privateImage(image);
   }
 
@@ -311,6 +333,8 @@ public class CustomerAccountController {
       boolean lateReturnRequested, LocalDateTime lateReturnTime,
       boolean lateReturnApproved, BigDecimal lateReturnFee, LocalDateTime holdExpiresAt,
       boolean identityDocumentsAvailable, boolean paymentProofAvailable,
+      String depositMethod, String secondaryIdentityType, boolean secondaryIdentityDocumentsAvailable,
+      String socialProfileLink,
       String storeBranchId, String storeBranchCode, String storeBranchName, String storeBranchAddress,
       List<AccountBookingLineResponse> items) {
     static AccountBookingResponse from(Booking booking, ProductRepository products) {
@@ -328,6 +352,9 @@ public class CustomerAccountController {
         booking.getLateReturnFee(), booking.getHoldExpiresAt(),
         booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
         booking.getPaymentProofReference() != null,
+        booking.getDepositMethod(), booking.getSecondaryIdentityType(),
+        booking.getSecondaryIdentityFrontReference() != null && booking.getSecondaryIdentityBackReference() != null,
+        booking.getSocialProfileLink(),
         booking.getStoreBranchId(), booking.getStoreBranchCode(), booking.getStoreBranchName(),
         booking.getStoreBranchAddress(), booking.getItems().stream()
             .map(line -> AccountBookingLineResponse.from(line, productById.get(line.getProductId())))
