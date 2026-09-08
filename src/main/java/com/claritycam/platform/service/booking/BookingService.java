@@ -408,6 +408,9 @@ public class BookingService {
       booking.attachSecondaryIdentityDocuments(request.secondaryIdentityType(),
           claimedSecondaryIdentity.frontStorageKey(), claimedSecondaryIdentity.backStorageKey(),
           request.socialProfileLink().trim());
+    } else if (request.socialProfileLink() != null && !request.socialProfileLink().isBlank()) {
+      // Cọc tiền mặt: link FB/IG là tùy chọn, không kèm giấy tờ cọc thứ hai.
+      booking.applySocialProfileLink(request.socialProfileLink().trim());
     }
     Booking saved = bookings.save(booking);
     operations.replaceReservations(saved, ReservationType.SOFT, "PUBLIC");

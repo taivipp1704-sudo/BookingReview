@@ -225,6 +225,11 @@ public class Booking {
     this.secondaryIdentityBackReference = back;
     this.socialProfileLink = socialProfileLink;
   }
+  // Với cọc tiền mặt, link FB/IG là tùy chọn (không kèm giấy tờ cọc thứ hai)
+  // — dùng hàm riêng này để lưu link mà không đụng tới các trường giấy tờ.
+  public void applySocialProfileLink(String socialProfileLink) {
+    this.socialProfileLink = socialProfileLink;
+  }
   public void applyPromotion(BigDecimal subtotal, BigDecimal discount, String code) {
     this.subtotalAmount = subtotal;
     this.discountAmount = discount == null ? BigDecimal.ZERO : discount;
