@@ -47,6 +47,12 @@ public class Booking {
   private boolean lateReturnApproved;
   @Column(precision = 19, scale = 2)
   private BigDecimal lateReturnFee;
+  // Phí trả trễ phát sinh SAU khi đã bàn giao máy (khách không xin trước, admin
+  // ghi nhận trực tiếp) — tách khỏi lateReturnFee vì đó là phí thương lượng
+  // TRƯỚC khi bàn giao dựa trên yêu cầu của khách (lateReturnRequested).
+  @Column(precision = 19, scale = 2)
+  private BigDecimal postHandoverLateFee;
+  private String postHandoverLateFeeReason;
   private boolean kycApproved;
   private String identityFrontReference;
   private String identityBackReference;
@@ -115,6 +121,7 @@ public class Booking {
     this.lateReturnRequested = false;
     this.lateReturnApproved = false;
     this.lateReturnFee = BigDecimal.ZERO;
+    this.postHandoverLateFee = BigDecimal.ZERO;
     this.kycApproved = false;
     this.depositMethod = "CASH";
     this.bundleId = bundleId;
@@ -174,6 +181,17 @@ public class Booking {
     this.updatedAt = LocalDateTime.now();
   }
 
+  // Ghi nhận trực tiếp phí trả trễ phát sinh SAU khi đã bàn giao máy (không cần
+  // khách yêu cầu trước) — cộng thẳng vào totalAmount, 1 bước như reviewEarlyPickup.
+  public void applyPostHandoverLateFee(BigDecimal fee, String reason) {
+    BigDecimal previousFee = this.postHandoverLateFee == null ? BigDecimal.ZERO : this.postHandoverLateFee;
+    this.totalAmount = this.totalAmount.subtract(previousFee);
+    this.postHandoverLateFee = fee == null ? BigDecimal.ZERO : fee.max(BigDecimal.ZERO);
+    this.totalAmount = this.totalAmount.add(this.postHandoverLateFee);
+    this.postHandoverLateFeeReason = reason == null ? "" : reason.trim();
+    this.updatedAt = LocalDateTime.now();
+  }
+
   public String getId() { return id; }
   public String getCustomerName() { return customerName; }
   public String getPhone() { return phone; }
@@ -203,6 +221,8 @@ public class Booking {
   public LocalDateTime getLateReturnTime() { return lateReturnTime; }
   public boolean isLateReturnApproved() { return lateReturnApproved; }
   public BigDecimal getLateReturnFee() { return lateReturnFee == null ? BigDecimal.ZERO : lateReturnFee; }
+  public BigDecimal getPostHandoverLateFee() { return postHandoverLateFee == null ? BigDecimal.ZERO : postHandoverLateFee; }
+  public String getPostHandoverLateFeeReason() { return postHandoverLateFeeReason; }
   public boolean isKycApproved() { return kycApproved; }
   public String getIdentityFrontReference() { return identityFrontReference; }
   public String getIdentityBackReference() { return identityBackReference; }

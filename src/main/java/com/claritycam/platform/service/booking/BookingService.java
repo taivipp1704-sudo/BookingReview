@@ -30,6 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -570,6 +571,22 @@ public class BookingService {
     Booking saved = bookings.save(booking);
     String note = (reason == null ? "" : reason.trim()) + (approved ? " | Phí: " + booking.getLateReturnFee() : "");
     audit.record(actor, approved ? "LATE_RETURN_APPROVED" : "LATE_RETURN_REJECTED", "BOOKING", id, note);
+    return saved;
+  }
+
+  @Transactional
+  public Booking applyPostHandoverLateFee(String id, BigDecimal fee, String reason, String actor) {
+    Booking booking = bookings.findByIdWithItemsForUpdate(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy booking."));
+    if (!EnumSet.of(BookingState.IN_USE, BookingState.INCIDENT, BookingState.COMPLETED).contains(booking.getState())) {
+      throw ApiException.badRequest("Chỉ ghi nhận phí trả trễ sau khi đã bàn giao máy.");
+    }
+    if (fee == null || fee.signum() < 0) {
+      throw ApiException.badRequest("Số tiền phí trả trễ không hợp lệ.");
+    }
+    booking.applyPostHandoverLateFee(fee, reason);
+    Booking saved = bookings.save(booking);
+    audit.record(actor, "POST_HANDOVER_LATE_FEE_APPLIED", "BOOKING", id,
+        (reason == null ? "" : reason.trim()) + " | Phí: " + booking.getPostHandoverLateFee());
     return saved;
   }
 

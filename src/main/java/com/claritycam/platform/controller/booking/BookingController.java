@@ -241,6 +241,14 @@ public class BookingController {
         id, request.approved(), request.fee(), request.reason(), authentication.getName()));
   }
 
+  @PatchMapping("/api/admin/bookings/{id}/post-handover-late-fee")
+  @PreAuthorize("hasAnyRole('ADMIN','MANAGER','OPS','SALES')")
+  AdminBookingResponse applyPostHandoverLateFee(@PathVariable String id,
+      @Valid @RequestBody PostHandoverLateFeeRequest request, Authentication authentication) {
+    return AdminBookingResponse.from(bookingService.applyPostHandoverLateFee(
+        id, request.fee(), request.reason(), authentication.getName()));
+  }
+
   @GetMapping("/api/admin/bookings/{id}/operations")
   BookingOperationsService.OperationsSnapshot operations(@PathVariable String id) {
     return bookingService.operations(id);
@@ -309,6 +317,8 @@ public class BookingController {
                                          @Size(max = 500) String reason) {}
   public record LateReturnReviewRequest(boolean approved, @DecimalMin("0") BigDecimal fee,
                                         @Size(max = 500) String reason) {}
+  public record PostHandoverLateFeeRequest(@NotNull @DecimalMin("0") BigDecimal fee,
+                                           @Size(max = 500) String reason) {}
 
   public record PublicBookingResponse(String id, BookingState state, BigDecimal subtotalAmount, BigDecimal discountAmount,
                                       BigDecimal totalAmount, BigDecimal depositRequired, BigDecimal equipmentDeposit,
@@ -375,6 +385,8 @@ public class BookingController {
       LocalDateTime lateReturnTime,
       boolean lateReturnApproved,
       BigDecimal lateReturnFee,
+      BigDecimal postHandoverLateFee,
+      String postHandoverLateFeeReason,
       boolean identityDocumentsAvailable,
       boolean paymentProofAvailable,
       boolean bankAccountAvailable,
@@ -399,6 +411,7 @@ public class BookingController {
           booking.getEarlyPickupFee(),
           booking.isLateReturnRequested(), booking.getLateReturnTime(), booking.isLateReturnApproved(),
           booking.getLateReturnFee(),
+          booking.getPostHandoverLateFee(), booking.getPostHandoverLateFeeReason(),
           booking.getIdentityFrontReference() != null && booking.getIdentityBackReference() != null,
           booking.getPaymentProofReference() != null,
           booking.getBankAccountReference() != null,
