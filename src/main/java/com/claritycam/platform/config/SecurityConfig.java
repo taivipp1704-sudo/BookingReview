@@ -102,6 +102,7 @@ public class SecurityConfig {
                 "/api/customer/account/me",
                 "/api/customer/account/bookings",
                 "/api/customer/account/bookings/*/identity/*",
+                "/api/customer/account/bookings/*/secondary-identity/*",
                 "/api/customer/account/bookings/*/payment-proof",
                 "/api/customer/account/bookings/*/feedback",
                 "/api/bookings/holds",
@@ -121,9 +122,11 @@ public class SecurityConfig {
                 "/api/customer/account/pin/disable",
                 "/api/customer/account/bookings/*/feedback",
                 "/api/customer/account/identity-documents",
+                "/api/customer/account/secondary-identity-documents",
                 "/api/customer/account/payment-proof",
                 "/api/customer/account/bank-account").permitAll()
             .requestMatchers("/api/admin/bookings/*/identity/*").hasAnyRole("ADMIN", "MANAGER")
+            .requestMatchers("/api/admin/bookings/*/secondary-identity/*").hasAnyRole("ADMIN", "MANAGER")
             .requestMatchers("/api/admin/feedback/**").hasAnyRole("ADMIN", "MANAGER", "SALES", "OPS")
             .requestMatchers("/api/admin/customer-accounts/**").hasRole("ADMIN")
             .requestMatchers("/api/admin/users/**").hasRole("ADMIN")
